@@ -212,3 +212,6 @@ Use `anvil --block-time 2` (not instant mining) so time-based behaviour resemble
 14. **Vercel root is `web/`** — the app must not import from `../contracts`; that's why `pnpm gen` copies deployments into `web/src/deployments/`.
 15. **Cache Components is on** (`cacheComponents: true`, Next 16.4 default). Anything reading cookies/headers or other request data must sit inside `<Suspense>`; read the bundled docs on Cache Components before building layouts.
 16. **Base Account (Face ID wallet) is behind `NEXT_PUBLIC_ENABLE_BASE_ACCOUNT=1`** (off by default) until Sepolia support is confirmed on a real device (D-25).
+17. **Lightning CSS drops `backdrop-filter`** if you also write `-webkit-backdrop-filter` beside it — write only the unprefixed property.
+18. **Use `useReducedMotionPref` from `components/ui/hooks.ts`**, not motion's `useReducedMotion`, to avoid hydration mismatches.
+19. Headless browsers report the tab as hidden, so `fx/` effects look paused in automated screenshots; motion logs a "Reduced Motion enabled" dev warning under reduced motion — not an error.

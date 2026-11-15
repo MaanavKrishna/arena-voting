@@ -1,26 +1,439 @@
 @import "tailwindcss";
 
+/*
+ * Arena design tokens — docs/design-system.md.
+ * Colour values mirror web/src/lib/tokens.ts (the source of truth; contrast.test.ts checks both).
+ * Each colour is light-dark(<light>, <dark>) and resolves against the element's color-scheme,
+ * so [data-theme] works on any subtree (the Stage page is always dark).
+ */
+
+@theme {
+  /* Only our tokens: no default palette, font sizes, shadows or radii leak into components. */
+  --color-*: initial;
+  --text-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+
+  --color-bg: light-dark(oklch(0.985 0.002 270), oklch(0.145 0.006 270));
+  --color-bg-elevated: light-dark(oklch(1 0 0), oklch(0.19 0.007 270));
+  --color-bg-sunken: light-dark(oklch(0.96 0.003 270), oklch(0.12 0.005 270));
+  --color-fg: light-dark(oklch(0.2 0.01 270), oklch(0.97 0.003 270));
+  --color-fg-muted: light-dark(oklch(0.47 0.012 270), oklch(0.72 0.01 270));
+  --color-fg-subtle: light-dark(oklch(0.6 0.01 270), oklch(0.58 0.01 270));
+  --color-border: light-dark(oklch(0.2 0.01 270 / 0.1), oklch(1 0 0 / 0.1));
+  --color-border-strong: light-dark(oklch(0.2 0.01 270 / 0.47), oklch(1 0 0 / 0.36));
+  --color-accent: light-dark(oklch(0.55 0.22 280), oklch(0.68 0.19 280));
+  --color-accent-fg: light-dark(oklch(0.99 0 0), oklch(0.15 0.02 280));
+  --color-live: light-dark(oklch(0.64 0.21 32), oklch(0.72 0.18 35));
+  --color-verified: light-dark(oklch(0.6 0.16 155), oklch(0.75 0.16 155));
+  --color-warning: light-dark(oklch(0.75 0.16 75), oklch(0.82 0.15 80));
+  --color-danger: light-dark(oklch(0.58 0.22 25), oklch(0.7 0.19 25));
+  --color-prize: light-dark(oklch(0.8 0.15 85), oklch(0.85 0.14 88));
+  --color-live-text: light-dark(oklch(0.5 0.21 32), oklch(0.8 0.18 35));
+  --color-verified-text: light-dark(oklch(0.5 0.16 155), oklch(0.8 0.16 155));
+  --color-warning-text: light-dark(oklch(0.5 0.16 75), oklch(0.8 0.15 80));
+  --color-danger-text: light-dark(oklch(0.5 0.22 25), oklch(0.8 0.19 25));
+  --color-prize-text: light-dark(oklch(0.5 0.15 85), oklch(0.8 0.14 88));
+  --color-entry-1: light-dark(oklch(0.58 0.17 280), oklch(0.68 0.17 280));
+  --color-entry-2: light-dark(oklch(0.58 0.16 35), oklch(0.72 0.16 35));
+  --color-entry-3: light-dark(oklch(0.58 0.14 155), oklch(0.72 0.14 155));
+  --color-entry-4: light-dark(oklch(0.58 0.14 85), oklch(0.78 0.14 85));
+  --color-entry-5: light-dark(oklch(0.58 0.15 220), oklch(0.68 0.15 220));
+  --color-entry-6: light-dark(oklch(0.58 0.18 330), oklch(0.68 0.18 330));
+  --color-entry-7: light-dark(oklch(0.58 0.12 120), oklch(0.74 0.12 120));
+  --color-entry-8: light-dark(oklch(0.58 0.12 250), oklch(0.66 0.12 250));
+  --color-entry-other: light-dark(oklch(0.58 0.01 270), oklch(0.6 0.01 270));
+  /* Modal scrim (§5) — same in both themes. */
+  --color-scrim: oklch(0 0 0 / 0.4);
+
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-xs: 0.375rem; /* 6px chips */
+  --radius-sm: 0.625rem; /* 10px inputs, buttons */
+  --radius-md: 0.875rem; /* 14px cards */
+  --radius-lg: 1.375rem; /* 22px sheets, modals */
+  --radius-xl: 2rem; /* 32px hero panels */
+
+  /* Light-theme recipe; dark uses the same offsets at 1.5x opacity plus a 1px top highlight. */
+  --shadow-sm:
+    inset 0 1px 0 light-dark(oklch(1 0 0 / 0), oklch(1 0 0 / 0.06)),
+    0 1px 2px light-dark(oklch(0.2 0.01 270 / 0.06), oklch(0.05 0.01 270 / 0.09)),
+    0 1px 1px light-dark(oklch(0.2 0.01 270 / 0.04), oklch(0.05 0.01 270 / 0.06));
+  --shadow-md:
+    inset 0 1px 0 light-dark(oklch(1 0 0 / 0), oklch(1 0 0 / 0.07)),
+    0 4px 12px light-dark(oklch(0.2 0.01 270 / 0.08), oklch(0.05 0.01 270 / 0.12)),
+    0 1px 3px light-dark(oklch(0.2 0.01 270 / 0.06), oklch(0.05 0.01 270 / 0.09));
+  --shadow-lg:
+    inset 0 1px 0 light-dark(oklch(1 0 0 / 0), oklch(1 0 0 / 0.08)),
+    0 16px 40px light-dark(oklch(0.2 0.01 270 / 0.14), oklch(0.05 0.01 270 / 0.21)),
+    0 4px 12px light-dark(oklch(0.2 0.01 270 / 0.08), oklch(0.05 0.01 270 / 0.12));
+
+  --container-content: 75rem; /* 1200px max content width */
+  --container-prose: 40rem;
+  --container-sheet: 32rem;
+
+  --perspective-tilt: 1000px; /* TiltCard (§7) */
+
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ---------- Theme selection ---------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/*
+ * Lightning CSS compiles light-dark() to a variable polyfill that resolves where the custom
+ * property is declared. Re-declaring the colour tokens on any [data-theme] element makes a
+ * forced-theme subtree (Stage, /system theme panels) resolve its own values.
+ * Keep in sync with @theme above (contrast.test.ts checks both copies).
+ */
+[data-theme] {
+  --color-bg: light-dark(oklch(0.985 0.002 270), oklch(0.145 0.006 270));
+  --color-bg-elevated: light-dark(oklch(1 0 0), oklch(0.19 0.007 270));
+  --color-bg-sunken: light-dark(oklch(0.96 0.003 270), oklch(0.12 0.005 270));
+  --color-fg: light-dark(oklch(0.2 0.01 270), oklch(0.97 0.003 270));
+  --color-fg-muted: light-dark(oklch(0.47 0.012 270), oklch(0.72 0.01 270));
+  --color-fg-subtle: light-dark(oklch(0.6 0.01 270), oklch(0.58 0.01 270));
+  --color-border: light-dark(oklch(0.2 0.01 270 / 0.1), oklch(1 0 0 / 0.1));
+  --color-border-strong: light-dark(oklch(0.2 0.01 270 / 0.47), oklch(1 0 0 / 0.36));
+  --color-accent: light-dark(oklch(0.55 0.22 280), oklch(0.68 0.19 280));
+  --color-accent-fg: light-dark(oklch(0.99 0 0), oklch(0.15 0.02 280));
+  --color-live: light-dark(oklch(0.64 0.21 32), oklch(0.72 0.18 35));
+  --color-verified: light-dark(oklch(0.6 0.16 155), oklch(0.75 0.16 155));
+  --color-warning: light-dark(oklch(0.75 0.16 75), oklch(0.82 0.15 80));
+  --color-danger: light-dark(oklch(0.58 0.22 25), oklch(0.7 0.19 25));
+  --color-prize: light-dark(oklch(0.8 0.15 85), oklch(0.85 0.14 88));
+  --color-live-text: light-dark(oklch(0.5 0.21 32), oklch(0.8 0.18 35));
+  --color-verified-text: light-dark(oklch(0.5 0.16 155), oklch(0.8 0.16 155));
+  --color-warning-text: light-dark(oklch(0.5 0.16 75), oklch(0.8 0.15 80));
+  --color-danger-text: light-dark(oklch(0.5 0.22 25), oklch(0.8 0.19 25));
+  --color-prize-text: light-dark(oklch(0.5 0.15 85), oklch(0.8 0.14 88));
+  --color-entry-1: light-dark(oklch(0.58 0.17 280), oklch(0.68 0.17 280));
+  --color-entry-2: light-dark(oklch(0.58 0.16 35), oklch(0.72 0.16 35));
+  --color-entry-3: light-dark(oklch(0.58 0.14 155), oklch(0.72 0.14 155));
+  --color-entry-4: light-dark(oklch(0.58 0.14 85), oklch(0.78 0.14 85));
+  --color-entry-5: light-dark(oklch(0.58 0.15 220), oklch(0.68 0.15 220));
+  --color-entry-6: light-dark(oklch(0.58 0.18 330), oklch(0.68 0.18 330));
+  --color-entry-7: light-dark(oklch(0.58 0.12 120), oklch(0.74 0.12 120));
+  --color-entry-8: light-dark(oklch(0.58 0.12 250), oklch(0.66 0.12 250));
+  --color-entry-other: light-dark(oklch(0.58 0.01 270), oklch(0.6 0.01 270));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Theme switch cross-fade (ThemeToggle uses a view transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-standard);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    min-height: 100dvh;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  [data-theme] {
+    color: var(--color-fg);
+  }
+  ::selection {
+    background-color: color-mix(in oklch, var(--color-accent) 28%, transparent);
+  }
+  /* §11: 2px accent ring, 2px offset, never removed. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-fg-subtle);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------- Type (§3) — size, leading, tracking and weight travel together ---------- */
+@utility text-display-xl {
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-weight: 650;
+}
+@utility text-display {
+  font-size: clamp(2.25rem, 4.5vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 650;
+}
+@utility text-title-1 {
+  font-size: 1.75rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+@utility text-title-2 {
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+@utility text-title-3 {
+  font-size: 1.125rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+@utility text-body {
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+@utility text-callout {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  letter-spacing: 0;
+  font-weight: 450;
+}
+@utility text-footnote {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  letter-spacing: 0.005em;
+  font-weight: 450;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  font-weight: 500;
+}
+/* Uppercase caption — the only place uppercase is allowed (+0.06em). */
+@utility text-caption-caps {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  letter-spacing: 0.07em;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+@utility text-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  font-weight: 450;
+}
+@utility text-numeric-xl {
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Materials (§5) ---------- */
+@utility glass-thin {
+  background-color: color-mix(in oklch, var(--color-bg-elevated) 55%, transparent);
+  backdrop-filter: blur(12px) saturate(170%);
+  box-shadow: inset 0 1px 0 light-dark(oklch(1 0 0 / 0.6), oklch(1 0 0 / 0.08));
+  border: 1px solid var(--color-border);
+}
+@utility glass {
+  background-color: color-mix(in oklch, var(--color-bg-elevated) 70%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 light-dark(oklch(1 0 0 / 0.6), oklch(1 0 0 / 0.08)),
+    0 4px 12px light-dark(oklch(0.2 0.01 270 / 0.06), oklch(0.05 0.01 270 / 0.1));
+  border: 1px solid var(--color-border);
+}
+@utility glass-thick {
+  background-color: color-mix(in oklch, var(--color-bg-elevated) 82%, transparent);
+  backdrop-filter: blur(32px) saturate(190%);
+  box-shadow:
+    inset 0 1px 0 light-dark(oklch(1 0 0 / 0.6), oklch(1 0 0 / 0.08)),
+    0 16px 40px light-dark(oklch(0.2 0.01 270 / 0.14), oklch(0.05 0.01 270 / 0.21)),
+    0 4px 12px light-dark(oklch(0.2 0.01 270 / 0.08), oklch(0.05 0.01 270 / 0.12));
+  border: 1px solid var(--color-border);
+}
+@utility solid {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+/* Continuous corners where supported (§4). */
+@utility squircle {
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+  }
+}
+
+/* Sticky header scroll-edge fade (§5). */
+@utility scroll-edge-fade {
+  mask-image: linear-gradient(to bottom, black calc(100% - 1rem), transparent);
+}
+
+/* Gallery grid (§4). */
+@utility grid-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(17.5rem, 100%), 1fr));
+  gap: 1rem;
+  @media (width >= 48rem) {
+    gap: 1.5rem;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Live dot pulse (StatusPill). Disabled by the reduced-motion block below. */
+@keyframes live-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@utility animate-live-pulse {
+  animation: live-pulse 2s var(--ease-out-quint) infinite;
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@utility animate-shimmer {
+  animation: shimmer 1.6s var(--ease-standard) infinite;
+}
+
+/* Aurora drift (§7): slow cycles, never near 5s. Transform only. */
+@keyframes aurora-a {
+  0%,
+  100% {
+    transform: translate3d(-10%, -6%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(12%, 8%, 0) scale(1.15);
+  }
+}
+@keyframes aurora-b {
+  0%,
+  100% {
+    transform: translate3d(10%, 4%, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-14%, -8%, 0) scale(0.95);
+  }
+}
+@keyframes aurora-c {
+  0%,
+  100% {
+    transform: translate3d(0, 10%, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(8%, -12%, 0) scale(1.2);
+  }
+}
+@utility animate-aurora-a {
+  animation: aurora-a 23s ease-in-out infinite;
+}
+@utility animate-aurora-b {
+  animation: aurora-b 31s ease-in-out infinite;
+}
+@utility animate-aurora-c {
+  animation: aurora-c 37s ease-in-out infinite;
+}
+
+/* BorderBeam: one lap per 6s. */
+@keyframes beam-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+@utility animate-beam {
+  animation: beam-spin 6s linear infinite;
+}
+
+/* ---------- Accessibility media queries (§5, §6, §11) ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-thin,
+  .glass,
+  .glass-thick {
+    background-color: var(--color-bg-elevated);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root,
+  [data-theme] {
+    --color-border: var(--color-border-strong);
+  }
+  .glass-thin,
+  .glass,
+  .glass-thick {
+    background-color: var(--color-bg-elevated);
+    backdrop-filter: none;
+    border-color: var(--color-border-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* /system "reduced motion preview" applies the same rules to a subtree. */
+[data-motion="reduce"] *,
+[data-motion="reduce"] ::before,
+[data-motion="reduce"] ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

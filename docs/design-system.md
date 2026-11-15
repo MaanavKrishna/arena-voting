@@ -5,6 +5,7 @@
 The system is code-first: tokens live in `web/src/app/globals.css` (`@theme`), components in `web/src/components/ui/` and `web/src/components/fx/`, and everything is shown on the living page **`/system`**. Build the system (Task 3 in the plan) **before** any product page.
 
 ## 1. Principles
+0. **Exception:** the landing hero may pair Spotlight (pointer-follow, desktop only) with a dimmed Aurora — Spotlight is interaction feedback there, not a second ambient effect. Everywhere else the one-ambient-effect rule holds.
 1. **Calm by default, spectacular on purpose.** At most **one ambient hero effect** (`components/fx/hero/*`: Spotlight, Aurora, BorderBeam) visible per screen. Transient celebrations (VoteBeam, Confetti) play only on their trigger. Small motion utilities (`components/fx/*`: NumberTicker, ListeningOrb, TiltCard) are not hero effects. Everything else is quiet.
 2. **Response first.** Every pressable gives feedback on pointer-down (scale 0.97, ≤ 100 ms). Nothing waits for a network round-trip to acknowledge a tap — use optimistic states.
 3. **Physical motion.** Springs, not durations, for anything a person touches. Critically damped by default; bounce only after a gesture that carried momentum (flick, drag release) or for a celebration.
@@ -27,7 +28,7 @@ OKLCH everywhere. Two themes: `light` and `dark`, following the system (`prefers
 | `--color-fg-muted` | `oklch(0.47 0.012 270)` | `oklch(0.72 0.01 270)` | Secondary text (≥ 4.5:1 on bg) |
 | `--color-fg-subtle` | `oklch(0.6 0.01 270)` | `oklch(0.58 0.01 270)` | Placeholder, disabled (large text only) |
 | `--color-border` | `oklch(0.2 0.01 270 / 0.10)` | `oklch(1 0 0 / 0.10)` | Hairlines |
-| `--color-border-strong` | `oklch(0.2 0.01 270 / 0.18)` | `oklch(1 0 0 / 0.18)` | Inputs, focusable outlines |
+| `--color-border-strong` | `oklch(0.2 0.01 270 / 0.47)` | `oklch(1 0 0 / 0.36)` | Inputs, focusable outlines (raised to reach 3:1) |
 
 ### 2.2 Brand and semantic
 | Token | Light | Dark | Use |
@@ -209,3 +210,10 @@ A parliament-style half circle where **every seat is one vote**.
 
 ## 12. `/system` page contents
 Colour swatches with contrast ratios (both themes), type scale specimen, spacing/radius ruler, materials over a busy image, shadows, motion playground (each spring token with a replay button), every `ui/` component in every state, every `fx/` effect with an on/off toggle and a "reduced motion" preview switch, Hemicycle with a slider for 0–800 votes and an "add vote" button.
+
+## 13. Implementation notes (from building it)
+- **Token values live in `web/src/lib/tokens.ts`** (source of truth for the contrast test); `globals.css` mirrors them and a test checks every value is present.
+- **Each colour is declared twice** (in `@theme` and on `[data-theme]`) so forced-theme sections (the always-dark Stage, side-by-side panels on `/system`) switch correctly — Lightning CSS resolves `light-dark()` once at the root, so don't rely on it.
+- **Squircle** only on cards, sheets and panels (radius ≥ 14 px); on small radii it reads too sharp.
+- Extra type utility: `text-caption-caps` (caption + uppercase + 0.06em).
+- Use `cn` from `@/lib/cn` — it's extended so `text-<type token>` and `text-<colour>` don't cancel each other.
