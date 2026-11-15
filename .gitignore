@@ -31,3 +31,5 @@ contracts/lib/
 spikes/**/dist/
 contracts/deployments/test-*.json
 contracts/broadcast/
+.vercel
+!.env.example
