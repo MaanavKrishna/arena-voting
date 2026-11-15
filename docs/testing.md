@@ -1,6 +1,6 @@
 # Testing strategy
 
-Work is **done only when verified**. Every task in the plan ends with a command or a browser check whose output proves it. Quote real output in the progress ledger.
+Work is **done only when verified**: every change ends with a command or a browser check whose output proves it.
 
 | Layer | Tool | Command | Must cover |
 |---|---|---|---|
@@ -80,7 +80,7 @@ For each changed screen: open at **390 px** and **1440 px**, both themes, click 
 ## Real devices
 Phones need HTTPS for mic/camera: run `pnpm dev`, then `cloudflared tunnel --url http://localhost:3000` (or `ngrok http 3000`) and open the HTTPS URL on the phone. The tunnel URL is a new origin — add it to the Alchemy and Reown allowlists while testing. Simpler alternative: a Vercel preview deployment against Sepolia.
 
-Checklist before the demo (record results in the ledger):
+Checklist before the demo:
 - [ ] iPhone Safari + MetaMask mobile (in-app browser) and WalletConnect from Safari: connect, vote.
 - [ ] Android Chrome + MetaMask/Rabby: connect, vote.
 - [ ] Base Account (passkey) on iPhone and Android, if supported on Sepolia.

@@ -54,7 +54,7 @@ source ../.env
 forge script script/Deploy.s.sol --rpc-url "$SEPOLIA_RPC_URL" --private-key "$DEPLOYER_PRIVATE_KEY" --broadcast --verify --etherscan-api-key "$ETHERSCAN_API_KEY"
 ```
 - `Deploy.s.sol` writes `contracts/deployments/<chainId>.json` = `{ "address": "0x…", "block": 123 }` (needs `fs_permissions` read-write on `./deployments`). Commit `11155111.json`; `31337.json` is gitignored. `pnpm gen` copies them into `web/src/deployments/`, which `config/contracts.ts` reads (the block is the `fromBlock` for log queries).
-- Proof of done: the Etherscan page shows **"Contract Source Code Verified"**. Paste the URL into the ledger and README.
+- Proof of done: the Etherscan page shows **"Contract Source Code Verified"**. Link it from the README.
 - If verification fails during the broadcast, rerun `forge verify-contract <address> src/Arena.sol:Arena --chain sepolia --watch`.
 - **Redeploying** creates a new address and empties all contests. Do it only before the demo data is created; then `pnpm gen`, commit, and redeploy the web app.
 - `Seed.s.sol` on Sepolia: creates one demo contest per presence mode with short windows, using the deployer as organiser. Optional.

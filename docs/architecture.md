@@ -180,7 +180,6 @@ Versions were checked against the npm registry and GitHub releases. **Use exact 
     deployments/<chainId>.json    { "address", "block" } — 11155111.json committed, 31337.json gitignored
   web/                 Next.js app (see frontend.md for full tree)
   docs/                these documents
-  docs/plans/          implementation plan + progress ledger (git-excluded)
   spikes/              throwaway experiments (sound spike), not imported by web/
 ```
 Root `package.json` scripts proxy into `web/` and `contracts/` (see [frontend.md](frontend.md#scripts)).

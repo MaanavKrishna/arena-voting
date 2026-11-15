@@ -33,3 +33,6 @@ contracts/deployments/test-*.json
 contracts/broadcast/
 .vercel
 !.env.example
+
+# local tool output
+.playwright-mcp/
