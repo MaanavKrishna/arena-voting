@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, LogOut } from "lucide-react";
+import { Activity, ExternalLink, LogOut } from "lucide-react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useBalance, useConnection, useDisconnect } from "wagmi";
@@ -151,6 +152,14 @@ function AccountPanel({ address, onDone }: { address: `0x${string}`; onDone: () 
       </dl>
 
       <div className="flex flex-col gap-1">
+        <Link
+          href="/me"
+          onClick={onDone}
+          className="text-callout text-fg hover:bg-fg/6 flex h-11 items-center gap-3 rounded-sm px-3 transition-colors"
+        >
+          <Activity className="text-fg-muted size-4" strokeWidth={1.75} aria-hidden />
+          My activity
+        </Link>
         {explorer ? (
           <a
             href={explorer}
