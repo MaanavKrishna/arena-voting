@@ -63,6 +63,7 @@ export function SubmitEntryForm({
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [attempted, setAttempted] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [uploadError, setUploadError] = useState<ExplainedError | null>(null);
   const uploaded = useRef<{ key: string; uri: string } | null>(null);
 
@@ -82,7 +83,7 @@ export function SubmitEntryForm({
 
   const submit = async () => {
     setAttempted(true);
-    if (invalid) return;
+    if (invalid || imageBusy) return;
     setUploadError(null);
     setUploading(true);
     let metadataURI: string;
@@ -119,7 +120,13 @@ export function SubmitEntryForm({
       values.members.map((m, j) => (j === i ? value : m)),
     );
 
-  const disabledReason = busy ? null : invalid ? firstProblem(errors) : null;
+  const disabledReason = busy
+    ? null
+    : imageBusy
+      ? "Waiting for the image to finish uploading…"
+      : invalid
+        ? firstProblem(errors)
+        : null;
 
   return (
     <form
@@ -174,7 +181,7 @@ export function SubmitEntryForm({
       </Section>
 
       <Section title="Image" hint="Optional, but entries with an image get noticed.">
-        <ImageUpload value={imageUri} onChange={setImageUri} label="Entry image" aspect="16 / 9" disabled={busy} />
+        <ImageUpload value={imageUri} onChange={setImageUri} onBusyChange={setImageBusy} label="Entry image" aspect="16 / 9" disabled={busy} />
       </Section>
 
       <Section title="Links" hint={`Optional. Up to ${LIMITS.links} links, each starting with https://`}>

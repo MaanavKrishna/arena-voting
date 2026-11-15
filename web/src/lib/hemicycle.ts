@@ -5,6 +5,12 @@ export const OTHER_ENTRY_ID = 0;
 export const MAX_SEATS = 600;
 export const MAX_ROWS = 14;
 export const PALETTE_SIZE = 8;
+/**
+ * Seats in the chamber that small tallies sit in. Up to this many votes the real seats take the
+ * middle of a fixed `CHAMBER_SEATS` grid (the rest stay as empty slots), so a handful of votes reads
+ * as a part-filled chamber instead of a few dots stranded at the ends of the arc.
+ */
+export const CHAMBER_SEATS = 24;
 
 export type Seat = {
   /** Entry id, or OTHER_ENTRY_ID for the grouped Others wedge. */
@@ -27,9 +33,23 @@ export type HemicycleOptions = {
   innerRadius?: number;
   /** Seat budget before votes are grouped (perSeat > 1). Default 600. */
   maxSeats?: number;
+  /** Size of the fixed chamber small tallies sit in. Default `CHAMBER_SEATS`. */
+  chamberSeats?: number;
 };
 
-export type HemicycleResult = { seats: Seat[]; perSeat: number; placeholder: boolean };
+export type HemicycleResult = {
+  seats: Seat[];
+  perSeat: number;
+  /** True when there are no votes at all. */
+  placeholder: boolean;
+  /**
+   * The fixed chamber grid (left to right) while the tally fits in it (including no votes), else [].
+   * `seats` occupy `chamber.length - empty.length` of its slots.
+   */
+  chamber: SeatPosition[];
+  /** Chamber slots with no seat in them: draw these as the faint placeholder grid. */
+  empty: SeatPosition[];
+};
 
 export function hemicycleRows(n: number): number {
   return Math.min(Math.max(Math.ceil(Math.sqrt(n / 4)), 1), MAX_ROWS);
@@ -87,8 +107,13 @@ export function hemicycleGeometry(n: number, innerRadius = 0.4): SeatPosition[] 
 
 /**
  * Seats for a vote tally. Entries are ranked by votes (desc, then id asc, Others last) and fill the
- * seat order left to right, so each entry forms one wedge. `n = 0` returns the placeholder state:
- * no seats (draw `hemicycleGeometry(100)` as the faint outline).
+ * seat order left to right, so each entry forms one wedge.
+ *
+ * Small tallies (`n <= chamberSeats`, default 24) don't get their own tiny arc: they take the `n`
+ * slots of the fixed `hemicycleGeometry(chamberSeats)` grid nearest the centre line (so the
+ * chamber fills from the middle outward as votes arrive) and `empty` lists the slots left over.
+ * `n = 0` is the placeholder state: no seats, every slot empty. Larger tallies are laid out on their
+ * own geometry as before, with no `chamber`.
  */
 export function hemicycleSeats(
   counts: readonly { entryId: number; votes: number }[],
@@ -99,7 +124,11 @@ export function hemicycleSeats(
     .map((c) => ({ entryId: c.entryId, votes: Math.floor(c.votes) }))
     .filter((c) => Number.isFinite(c.votes) && c.votes > 0);
   const n = groups.reduce((a, c) => a + c.votes, 0);
-  if (n === 0) return { seats: [], perSeat: 1, placeholder: true };
+  const chamberSize = opts.chamberSeats ?? CHAMBER_SEATS;
+  if (n === 0) {
+    const chamber = hemicycleGeometry(chamberSize, opts.innerRadius);
+    return { seats: [], perSeat: 1, placeholder: true, chamber, empty: chamber };
+  }
 
   const perSeat = n <= maxSeats ? 1 : Math.ceil(n / maxSeats);
   groups.sort((a, b) => {
@@ -112,9 +141,21 @@ export function hemicycleSeats(
     const seats = Math.ceil(g.votes / perSeat);
     for (let i = 0; i < seats; i++) owners.push(g.entryId);
   }
+  if (owners.length <= chamberSize) {
+    const chamber = hemicycleGeometry(chamberSize, opts.innerRadius);
+    // Nearest the centre line first (inner row first on ties), then back into left-to-right order.
+    const taken = chamber
+      .map((p, slot) => ({ p, slot, off: Math.abs(p.angle - Math.PI / 2) }))
+      .sort((a, b) => a.off - b.off || a.p.row - b.p.row || a.slot - b.slot)
+      .slice(0, owners.length)
+      .sort((a, b) => a.slot - b.slot);
+    const used = new Set(taken.map((t) => t.slot));
+    const seats: Seat[] = taken.map((t, i) => ({ ...t.p, index: i, entryId: owners[i] }));
+    return { seats, perSeat: 1, placeholder: false, chamber, empty: chamber.filter((_, slot) => !used.has(slot)) };
+  }
   const geometry = hemicycleGeometry(owners.length, opts.innerRadius);
   const seats: Seat[] = geometry.map((p, i) => ({ ...p, entryId: owners[i] }));
-  return { seats, perSeat, placeholder: false };
+  return { seats, perSeat, placeholder: false, chamber: [], empty: [] };
 }
 
 // ---- colours ----------------------------------------------------------------------------------

@@ -16,14 +16,16 @@ export function Hero() {
     transition: reduced ? { duration: 0.2 } : { ...spring.smooth, delay: 0.05 + staggerDelay(i) * 2 },
   });
 
+  // The section is pulled up under the sticky nav (h-14 / md:h-16) so the aurora reaches the top edge;
+  // the extra top padding gives that height back to the content.
   return (
-    <section className="relative isolate overflow-hidden">
+    <section className="relative isolate -mt-14 overflow-hidden md:-mt-16">
       <Aurora
         intensity={0.2}
         className="[mask-image:linear-gradient(to_bottom,black_55%,transparent)]"
       />
       <Spotlight />
-      <div className="max-w-content relative z-10 mx-auto flex flex-col items-center px-6 pt-20 pb-24 text-center md:pt-32 md:pb-36">
+      <div className="max-w-content relative z-10 mx-auto flex flex-col items-center px-6 pt-34 pb-24 text-center md:pt-48 md:pb-36">
         <motion.p {...item(0)} className="text-caption-caps text-fg-muted mb-6">
           Contests on Ethereum
         </motion.p>

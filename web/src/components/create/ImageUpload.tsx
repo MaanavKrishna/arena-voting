@@ -12,6 +12,12 @@ export type ImageUploadProps = {
   /** `ipfs://<cid>` of the uploaded image, or "" when there is none. */
   value: string;
   onChange: (uri: string) => void;
+  /**
+   * Called with `true` when a pick starts preparing/uploading and `false` when it settles (success
+   * or failure). Lets a parent hold its submit button until the image URI is final. Also fires if
+   * this component unmounts mid-upload, so the flag can't get stuck.
+   */
+  onBusyChange?: (busy: boolean) => void;
   /** Accessible name for the picker, e.g. "Cover image". */
   label?: string;
   /** Shown inside the empty state. */
@@ -29,6 +35,7 @@ export type ImageUploadProps = {
 export function ImageUpload({
   value,
   onChange,
+  onBusyChange,
   label = "Image",
   hint = "PNG, JPEG, WebP or GIF. Big images are shrunk for you.",
   aspect = "16 / 9",
@@ -55,6 +62,7 @@ export function ImageUpload({
     if (!file || busy || disabled) return;
     setError(null);
     setBusy(true);
+    onBusyChange?.(true);
     try {
       const blob = await prepareImage(file);
       setLocal(URL.createObjectURL(blob));
@@ -69,6 +77,7 @@ export function ImageUpload({
       );
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }

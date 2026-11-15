@@ -284,4 +284,6 @@ export type StepProps = {
   blur: (field: keyof Errors) => void;
   /** Chain time, unix seconds. */
   now: number;
+  /** Reports whether an image is still being prepared or uploaded, so Create can wait for it. */
+  onImageBusy?: (busy: boolean) => void;
 };

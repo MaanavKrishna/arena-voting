@@ -5,7 +5,6 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type React
 import { fade, spring } from "@/lib/motion";
 import {
   OTHER_ENTRY_ID,
-  hemicycleGeometry,
   hemicycleSeats,
   type EntryColour,
   type Seat,
@@ -14,7 +13,6 @@ import { cn } from "./cn";
 import { useReducedMotionPref } from "./hooks";
 
 const INNER = 0.4;
-const PLACEHOLDER_SEATS = 100;
 /** Sweep from left to right on first appearance, whatever the seat count. */
 const SWEEP_SECONDS = 0.5;
 
@@ -71,17 +69,21 @@ export function seatRadius(seats: readonly { row: number }[]): number {
   return Math.min(0.42 * Math.min(gap, arc), 0.09);
 }
 
-/** Seats with keys and radius; memoised by the caller. */
+/**
+ * Seats with keys and radius; memoised by the caller. While the tally fits the fixed chamber the
+ * radius comes from the whole chamber grid, so seats and the empty slots around them match in size.
+ * `empty` is that grid's unfilled slots (the faint placeholder dots).
+ */
 export function keyedSeats(counts: readonly { entryId: number; votes: number }[]) {
   const result = hemicycleSeats(counts);
-  const r = seatRadius(result.seats);
+  const r = seatRadius(result.chamber.length > 0 ? result.chamber : result.seats);
   const seen = new Map<number, number>();
   const seats: KeyedSeat[] = result.seats.map((s) => {
     const k = seen.get(s.entryId) ?? 0;
     seen.set(s.entryId, k + 1);
     return { ...s, key: seatKey(s.entryId, k), r };
   });
-  return { seats, perSeat: result.perSeat, placeholder: result.placeholder, perEntry: seen };
+  return { seats, perSeat: result.perSeat, placeholder: result.placeholder, perEntry: seen, empty: result.empty, r };
 }
 
 export type HemicycleHandle = {
@@ -109,7 +111,8 @@ export type HemicycleProps = {
 /**
  * Parliament-style results: one seat per vote, each entry a wedge (design-system §9). Seats glide
  * when ranks change and new seats pop in with `spring.celebrate`; under reduced motion they
- * cross-fade instead. With no votes it shows a faint outline of 100 seats.
+ * cross-fade instead. Small tallies sit in the middle of a faint 24-slot chamber that fills outward;
+ * with no votes it shows that chamber empty.
  */
 export const Hemicycle = forwardRef<HemicycleHandle, HemicycleProps>(function Hemicycle(
   { counts, colours, names, highlight = null, onHighlight, holdEntry = null, children, className },
@@ -149,8 +152,8 @@ export const Hemicycle = forwardRef<HemicycleHandle, HemicycleProps>(function He
     [model],
   );
 
-  const placeholder = model.placeholder ? hemicycleGeometry(PLACEHOLDER_SEATS, INNER) : null;
-  const placeholderR = placeholder ? seatRadius(placeholder) : 0;
+  const inChamber = model.empty.length > 0 || model.placeholder;
+  const slotR = model.r;
   const pad = 0.1;
 
   return (
@@ -163,25 +166,20 @@ export const Hemicycle = forwardRef<HemicycleHandle, HemicycleProps>(function He
         className="block h-auto w-full overflow-visible"
         onPointerLeave={() => onHighlight?.(null)}
       >
-        {/* The chamber: a faint half-ring so a few seats still read as a hemicycle. */}
-        <path
-          aria-hidden
-          d={chamberPath(INNER - 0.1, 1 + 0.06)}
-          fill="var(--color-fg)"
-          opacity={0.035}
-        />
-        {placeholder ? (
-          <g data-testid="hemicycle-placeholder">
-            {placeholder.map((p) => (
+        {/* Large tallies: a faint half-ring behind the seats. Small ones show empty slots instead. */}
+        {!inChamber ? (
+          <path aria-hidden d={chamberPath(INNER - 0.1, 1 + 0.06)} fill="var(--color-fg)" opacity={0.035} />
+        ) : null}
+        {inChamber ? (
+          <g data-testid="hemicycle-placeholder" aria-hidden>
+            {model.empty.map((p) => (
               <circle
-                key={p.index}
+                key={`${p.row}:${p.index}`}
                 cx={p.x}
                 cy={-p.y}
-                r={placeholderR}
-                fill="none"
-                stroke="var(--color-border-strong)"
-                strokeWidth={placeholderR * 0.18}
-                opacity={0.55}
+                r={slotR * 0.55}
+                fill="var(--color-border-strong)"
+                opacity={0.45}
               />
             ))}
           </g>

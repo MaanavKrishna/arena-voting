@@ -73,6 +73,7 @@ function Wizard({ initial }: { initial: { draft: Draft; step: number } }) {
   const [attempted, setAttempted] = useState<ReadonlySet<number>>(new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const write = useArenaWrite("createContest");
@@ -134,13 +135,16 @@ function Wizard({ initial }: { initial: { draft: Draft; step: number } }) {
   };
 
   const badStep = firstInvalidStep(draft, now);
-  const disabledReason = !chain.ready
+  const disabledReason = imageBusy
+    ? "Waiting for the cover image to finish uploading…"
+    : !chain.ready
     ? "Syncing with the network…"
     : badStep >= 0
       ? `Finish “${STEPS[badStep].label}” first.`
       : null;
 
   async function create() {
+    if (imageBusy) return;
     const bad = firstInvalidStep(draft, now);
     if (bad >= 0) {
       setAttempted((a) => new Set(a).add(bad));
@@ -190,7 +194,7 @@ function Wizard({ initial }: { initial: { draft: Draft; step: number } }) {
     txHash: write.txHash,
   };
 
-  const stepProps = { draft, set, errors: visible, blur, now };
+  const stepProps = { draft, set, errors: visible, blur, now, onImageBusy: setImageBusy };
   const last = step === STEPS.length - 1;
 
   return (

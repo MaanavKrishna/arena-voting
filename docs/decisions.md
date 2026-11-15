@@ -135,3 +135,8 @@ Format: context → decision → alternatives rejected → consequences. Add a n
 - **Context:** With Cache Components on, reading cookies in the root layout forces a Suspense boundary around the whole app and makes every page dynamic.
 - **Decision:** `<WalletProviders>` sits in the client `Providers` without `initialState`; wagmi's cookie storage + reconnect restores the connection after hydration. Pages stay static.
 - **Consequence:** A brief "Connect" → connected flicker on first paint; components show a skeleton until `useConnection` settles. `serverExternalPackages: ["@base-org/account", "@coinbase/cdp-sdk"]` in `next.config.ts` keeps the Base Account SDK's optional deps out of the server bundle.
+
+## D-28 · Stable `Math.random` while building the wagmi config on the server
+- **Context:** Under Cache Components, viem's `http()` transport stamps a `Math.random()` uid during server prerender, which Next reports as `blocking-prerender-random-client`.
+- **Decision:** `config/wagmi.ts` builds the config inside `withStableRandom()` on the server only (swaps `Math.random` for a constant during synchronous construction, restores it in `finally`). The browser path is untouched and the uid is never rendered.
+- **Revisit:** if viem/wagmi expose a way to pass a transport uid, or Next adds an opt-out for this case.

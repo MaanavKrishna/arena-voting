@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { ImageUpload } from "./ImageUpload";
 import { LIMITS, type StepProps } from "./draft";
 
-export function StepBasics({ draft, set, errors, blur }: StepProps) {
+export function StepBasics({ draft, set, errors, blur, onImageBusy }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
       <Field
@@ -47,6 +47,7 @@ export function StepBasics({ draft, set, errors, blur }: StepProps) {
           aspect="2 / 1"
           value={draft.cover}
           onChange={(cover) => set({ cover })}
+          onBusyChange={onImageBusy}
           hint="Shows at the top of your contest. PNG, JPEG, WebP or GIF."
         />
       </div>

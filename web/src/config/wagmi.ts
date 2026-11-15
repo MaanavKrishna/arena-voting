@@ -58,9 +58,26 @@ export function buildConnectors(flags: ConnectorFlags): CreateConnectorFn[] {
   return out;
 }
 
+/**
+ * viem stamps every client and transport with a `Math.random()` id. Built during a server prerender
+ * that trips Cache Components' `blocking-prerender-random-client`, and the id is never rendered or
+ * compared, so the server pass borrows a fixed value for the synchronous construction and puts the
+ * real one back straight after. The browser keeps the real `Math.random`.
+ */
+function withStableRandom<T>(build: () => T): T {
+  if (typeof window !== "undefined") return build();
+  const real = Math.random;
+  Math.random = () => 0.5;
+  try {
+    return build();
+  } finally {
+    Math.random = real;
+  }
+}
+
 function makeConfig() {
   const browser = typeof window !== "undefined";
-  return createConfig({
+  return withStableRandom(() => createConfig({
     chains,
     transports: Object.fromEntries(chains.map((c) => [c.id, http(rpcUrl(c.id))])),
     connectors: buildConnectors({
@@ -74,7 +91,7 @@ function makeConfig() {
     ssr: true,
     storage: createStorage({ storage: cookieStorage }),
     pollingInterval: 4_000,
-  });
+  }));
 }
 
 type ArenaConfig = ReturnType<typeof makeConfig>;

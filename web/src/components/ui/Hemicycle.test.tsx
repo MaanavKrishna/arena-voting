@@ -34,8 +34,18 @@ describe("Hemicycle", () => {
     expect(seatsIn(container)).toHaveLength(8);
     const img = screen.getByRole("img");
     expect(img.getAttribute("aria-label")).toBe("Results: Plant Pal 5 votes, Robo Chef 3 votes.");
-    expect(screen.queryByTestId("hemicycle-placeholder")).toBeNull();
+    // The other 16 slots of the 24-seat chamber stay as faint dots.
+    expect(screen.getByTestId("hemicycle-placeholder").querySelectorAll("circle")).toHaveLength(16);
     expect(screen.queryByTestId("hemicycle-scale")).toBeNull();
+  });
+
+  it("fills a small chamber from the centre outward, leaving both ends empty", () => {
+    const { container } = render(<Hemicycle counts={[{ entryId: 1, votes: 3 }]} colours={colours} names={names} />);
+    expect(seatsIn(container)).toHaveLength(3);
+    const model = keyedSeats([{ entryId: 1, votes: 3 }]);
+    for (const s of model.seats) expect(Math.abs(s.angle - Math.PI / 2)).toBeLessThan(0.6);
+    // no filled grey half-ring behind a small tally
+    expect(container.querySelector("svg > path")).toBeNull();
   });
 
   it("orders seats by rank left to right, each entry one contiguous wedge, Others last", () => {
@@ -60,14 +70,14 @@ describe("Hemicycle", () => {
     expect(seatsIn(container).at(-1)!.getAttribute("fill")).toBe("var(--color-entry-other)");
   });
 
-  it("shows the 100-seat placeholder and 'No votes yet' when nobody has voted", () => {
+  it("shows the empty 24-slot chamber and 'No votes yet' when nobody has voted", () => {
     const { container } = render(
       <Hemicycle counts={[{ entryId: 1, votes: 0 }]} colours={colours} names={names}>
         <span>total</span>
       </Hemicycle>,
     );
     expect(seatsIn(container)).toHaveLength(0);
-    expect(screen.getByTestId("hemicycle-placeholder").querySelectorAll("circle")).toHaveLength(100);
+    expect(screen.getByTestId("hemicycle-placeholder").querySelectorAll("circle")).toHaveLength(24);
     expect(screen.getByTestId("hemicycle-empty").textContent).toBe("No votes yet");
     expect(screen.queryByText("total")).toBeNull();
     expect(screen.getByRole("img").getAttribute("aria-label")).toBe("Results: no votes yet.");
@@ -121,9 +131,9 @@ describe("keyedSeats", () => {
 
   it("sizes seats so neighbours never overlap", () => {
     for (const n of [1, 7, 100, 600]) {
-      const { seats } = keyedSeats([{ entryId: 1, votes: n }]);
-      const r = seatRadius(seats);
+      const { seats, r } = keyedSeats([{ entryId: 1, votes: n }]);
       expect(r).toBeGreaterThan(0);
+      if (n > 24) expect(r).toBe(seatRadius(seats));
       for (let i = 1; i < seats.length; i++) {
         const a = seats[i - 1]!;
         const b = seats[i]!;

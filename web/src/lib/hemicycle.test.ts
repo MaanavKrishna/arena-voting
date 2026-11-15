@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHAMBER_SEATS,
   OTHER_ENTRY_ID,
   assignEntryColours,
   hemicycleGeometry,
@@ -72,13 +73,57 @@ describe("hemicycleSeats", () => {
     expect(r.seats).toHaveLength(151 + 100 + 50);
   });
 
-  it("n = 0 is a placeholder with zero seats", () => {
+  it("n = 0 is a placeholder with zero seats and an all-empty chamber", () => {
     for (const c of [[], [{ entryId: 1, votes: 0 }]]) {
       const r = hemicycleSeats(c);
       expect(r.placeholder).toBe(true);
       expect(r.seats).toEqual([]);
       expect(r.perSeat).toBe(1);
+      expect(r.chamber).toHaveLength(CHAMBER_SEATS);
+      expect(r.empty).toHaveLength(CHAMBER_SEATS);
     }
+  });
+
+  describe("small tallies sit in a fixed chamber", () => {
+    it.each([1, 2, 3, 7, 24])("n=%i: seats come from the %i-slot chamber, the rest are empty", (n) => {
+      const r = hemicycleSeats(one(n));
+      expect(r.seats).toHaveLength(n);
+      expect(r.chamber).toHaveLength(CHAMBER_SEATS);
+      expect(r.empty).toHaveLength(CHAMBER_SEATS - n);
+      const slot = (p: { row: number; angle: number }) => `${p.row}:${p.angle.toFixed(9)}`;
+      const slots = new Set(r.chamber.map(slot));
+      for (const s of r.seats) expect(slots.has(slot(s))).toBe(true);
+      const empties = new Set(r.empty.map(slot));
+      for (const s of r.seats) expect(empties.has(slot(s))).toBe(false);
+    });
+
+    it("fills from the centre outward: more votes only widen the occupied block", () => {
+      const spread = (n: number) => {
+        const angles = hemicycleSeats(one(n)).seats.map((s) => Math.abs(s.angle - Math.PI / 2));
+        return Math.max(...angles);
+      };
+      expect(spread(1)).toBeLessThan(0.3);
+      for (let n = 2; n <= 24; n++) expect(spread(n)).toBeGreaterThanOrEqual(spread(n - 1) - 1e-9);
+      // a single vote is nowhere near the far ends of the arc
+      expect(spread(3)).toBeLessThan(Math.PI / 4);
+    });
+
+    it("keeps seats in left-to-right order with sequential indexes and contiguous ranked wedges", () => {
+      const r = hemicycleSeats([
+        { entryId: 1, votes: 2 },
+        { entryId: 2, votes: 5 },
+      ]);
+      r.seats.forEach((s, i) => expect(s.index).toBe(i));
+      for (let i = 1; i < r.seats.length; i++) expect(r.seats[i].angle).toBeLessThanOrEqual(r.seats[i - 1].angle + 1e-12);
+      expect(r.seats.map((s) => s.entryId)).toEqual([2, 2, 2, 2, 2, 1, 1]);
+    });
+
+    it("larger tallies are unchanged: own geometry, no chamber", () => {
+      const r = hemicycleSeats(one(25));
+      expect(r.chamber).toEqual([]);
+      expect(r.empty).toEqual([]);
+      expect(r.seats.map((s) => ({ index: s.index, row: s.row, angle: s.angle, x: s.x, y: s.y }))).toEqual(hemicycleGeometry(25));
+    });
   });
 
   it("groups entries into contiguous wedges ranked by votes", () => {
