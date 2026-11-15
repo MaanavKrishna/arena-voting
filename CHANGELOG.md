@@ -2,6 +2,16 @@
 
 All notable changes to Arena are listed here. Versions follow [Semantic Versioning](https://semver.org); the format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [0.1.2] — 2026-11-15
+
+Security patch from the first CodeQL and Dependabot scans. No contract changes.
+
+### Security
+- Image previews only accept `https:`, `blob:` and same-site URLs, so a crafted link can't run script.
+- CSP violation reports have control characters stripped before logging, so a report can't forge log lines.
+- Patched `minimatch` (dev tooling) to 11.0.8; `pnpm audit` now reports no known vulnerabilities, including dev dependencies.
+- Two CodeQL findings reviewed and dismissed with reasons on record: a dedicated Web Worker's message handler, and the test-only IPFS stub that is disabled in production.
+
 ## [0.1.1] — 2026-11-15
 
 Security and reliability update. No contract changes; the Sepolia deployment is unchanged.
@@ -59,5 +69,6 @@ First public release. Live at **[arena-voting.vercel.app](https://arena-voting.v
 - The organiser is trusted for presence (room signal and door devices), not for tallies or payouts.
 - Votes are public on-chain.
 
+[0.1.2]: https://github.com/MaanavKrishna/arena-voting/releases/tag/v0.1.2
 [0.1.1]: https://github.com/MaanavKrishna/arena-voting/releases/tag/v0.1.1
 [0.1.0]: https://github.com/MaanavKrishna/arena-voting/releases/tag/v0.1.0

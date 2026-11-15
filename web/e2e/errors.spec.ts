@@ -113,7 +113,7 @@ test("cancelling in the wallet shows friendly copy and nothing is sent", async (
 
   // Trying again (wallet now approves) works.
   await page.unroute(RPC_URL, reject);
-  await sheet.getByRole("button", { name: /^Vote for |Try again/ }).first().click();
+  await sheet.getByRole("button", { name: /^(Vote for |Try again)/ }).first().click();
   await expect(page.getByText(/^You voted for/).first()).toBeVisible({ timeout: 30_000 });
 });
 

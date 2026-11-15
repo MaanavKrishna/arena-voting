@@ -8,8 +8,9 @@ const MAX_BYTES = 16_384;
 
 export type Violation = { directive: string; blocked: string; page: string };
 
+/** Report fields come from the browser, so control characters are flattened before logging. */
 function text(v: unknown): string {
-  return typeof v === "string" ? v.slice(0, 200) : "";
+  return typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ").slice(0, 200) : "";
 }
 
 function pathOf(url: string): string {

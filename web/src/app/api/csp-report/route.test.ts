@@ -45,6 +45,11 @@ describe("POST /api/csp-report", () => {
     expect(res.status).toBe(204);
     expect(warn).toHaveBeenCalledWith("[csp] connect-src blocked https://evil.example/x on /c/1");
   });
+  it("strips line breaks and control characters so a report can't forge log lines", () => {
+    const forged = { "csp-report": { "document-uri": "https://a.b/x", "violated-directive": "img-src\n[csp] fake", "blocked-uri": "https://e\r\u0000vil" } };
+    expect(summarise(forged)).toEqual([{ directive: "img-src [csp] fake", blocked: "https://e vil", page: "/x" }]);
+  });
+
   it("refuses bodies over 16 KB", async () => {
     const res = await POST(req("x".repeat(17_000), "application/reports+json"));
     expect(res.status).toBe(413);

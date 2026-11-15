@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import { ipfsDisplayUrl, uploadToIpfs } from "@/lib/ipfs";
 import { ImageError, prepareImage } from "./resizeImage";
+import { safeImageSrc } from "@/lib/safeUrl";
 
 export type ImageUploadProps = {
   /** `ipfs://<cid>` of the uploaded image, or "" when there is none. */
@@ -56,7 +57,7 @@ export function ImageUpload({
     };
   }, [local]);
 
-  const shown = local ?? (value ? ipfsDisplayUrl(value) : null);
+  const shown = safeImageSrc(local ?? (value ? ipfsDisplayUrl(value) : null));
 
   async function pick(file: File | undefined) {
     if (!file || busy || disabled) return;
