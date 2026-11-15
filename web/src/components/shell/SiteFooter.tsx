@@ -4,19 +4,42 @@ import { arenaAddress } from "@/config/contracts";
 import { chainName, explorerAddressUrl, isTestnet, targetChain } from "@/config/network";
 import { shortAddress } from "@/lib/format";
 
-/** Contract link (block explorer when the network has one) and the testnet reassurance line. */
+const LEARN_LINKS = [
+  { href: "/how-it-works", label: "How it works" },
+  { href: "/organisers", label: "For organisers" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/trust", label: "Trust" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
+] as const;
+
+/** Learn links, contract link (block explorer when the network has one) and the testnet reassurance line. */
 export function SiteFooter() {
   const address = arenaAddress(targetChain.id);
   const explorer = address ? explorerAddressUrl(address) : null;
 
   return (
     <footer className="text-footnote text-fg-muted pb-safe mt-24">
-      <div className="max-w-content mx-auto flex flex-col gap-4 px-4 pt-8 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
+      <div className="max-w-content mx-auto flex flex-col gap-6 px-4 pt-8 md:flex-row md:flex-wrap md:items-start md:justify-between md:gap-8 md:px-8 md:pb-8">
         <div className="flex flex-col gap-1">
           <span className="text-callout text-fg">Arena</span>
           {isTestnet ? <span>Free test ETH, no real money.</span> : null}
         </div>
-        <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <nav aria-labelledby="footer-learn">
+          <h2 id="footer-learn" className="text-callout text-fg">
+            Learn
+          </h2>
+          <ul className="grid grid-cols-2 gap-x-5 md:flex md:flex-wrap md:items-center">
+            {LEARN_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="hover:text-fg inline-flex h-11 items-center transition-colors">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <ul className="flex flex-wrap items-center gap-x-5 gap-y-1 md:mt-5.5">
           <li>
             <Link href="/explore" className="hover:text-fg inline-flex h-11 items-center transition-colors">
               Explore

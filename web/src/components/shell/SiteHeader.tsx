@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, Menu, Plus } from "lucide-react";
+import { BookOpen, Compass, Menu, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,6 +15,7 @@ import { spring } from "@/lib/motion";
 export const NAV_LINKS = [
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/create", label: "Create", icon: Plus },
+  { href: "/how-it-works", label: "How it works", icon: BookOpen },
 ] as const;
 
 /** `/c/1/manage` is not under Explore; `/explore?tab=live` is. */
