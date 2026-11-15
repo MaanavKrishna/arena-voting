@@ -11,9 +11,11 @@ export const OG_SIZE = { width: 1200, height: 630 };
 
 type OgFont = { name: string; data: Buffer; weight: 400 | 600; style: "normal" };
 
-const fontDir = join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans");
+// Fonts live in web/assets/fonts (Geist, OFL) and are added to the server bundle via
+// outputFileTracingIncludes in next.config.ts — node_modules paths are not traced on Vercel.
+const fontDir = join(process.cwd(), "assets/fonts");
 
-/** Geist from the installed package. If the files can't be read, the renderer's default font is used. */
+/** Geist for the share images. Throws if the font files are missing, so a broken deploy fails loudly in logs. */
 export async function loadOgFonts(): Promise<OgFont[]> {
   try {
     const [regular, semibold] = await Promise.all([
@@ -24,8 +26,8 @@ export async function loadOgFonts(): Promise<OgFont[]> {
       { name: "Geist", data: regular, weight: 400, style: "normal" },
       { name: "Geist", data: semibold, weight: 600, style: "normal" },
     ];
-  } catch {
-    return [];
+  } catch (err) {
+    throw new Error(`Share-image fonts missing in ${fontDir}`, { cause: err });
   }
 }
 
