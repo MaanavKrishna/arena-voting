@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { arenaAddress } from "@/config/contracts";
 import { chainName, explorerAddressUrl, isTestnet, targetChain } from "@/config/network";
+import { APP_VERSION, RELEASE_URL } from "@/config/release";
 import { shortAddress } from "@/lib/format";
 
 const LEARN_LINKS = [
@@ -22,7 +23,18 @@ export function SiteFooter() {
     <footer className="text-footnote text-fg-muted pb-safe mt-24">
       <div className="max-w-content mx-auto flex flex-col gap-6 px-4 pt-8 md:flex-row md:flex-wrap md:items-start md:justify-between md:gap-8 md:px-8 md:pb-8">
         <div className="flex flex-col gap-1">
-          <span className="text-callout text-fg">Arena</span>
+          <span className="text-callout text-fg flex items-baseline gap-2">
+            Arena
+            <a
+              href={RELEASE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-mono text-fg-muted hover:text-fg transition-colors"
+              aria-label={`Version ${APP_VERSION}, release notes`}
+            >
+              v{APP_VERSION}
+            </a>
+          </span>
           {isTestnet ? <span>Free test ETH, no real money.</span> : null}
         </div>
         <nav aria-labelledby="footer-learn">
