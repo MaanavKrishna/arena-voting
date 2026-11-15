@@ -60,7 +60,7 @@ forge script script/Deploy.s.sol --rpc-url "$SEPOLIA_RPC_URL" --private-key "$DE
 - `Seed.s.sol` on Sepolia: creates one demo contest per presence mode with short windows, using the deployer as organiser. Optional.
 
 ## Vercel
-- Root directory: `web`. Install command: `pnpm install --frozen-lockfile`. Build: `pnpm build`. Node: 26 (Vercel picks the major; `engines.node` pins 26.13.1 locally).
+- Root directory: `web`. Install command: `pnpm install --frozen-lockfile`. Build: `pnpm build`. Node 24.x on Vercel (D-30); local dev uses 26.7.0.
 - Env vars: everything in `web/.env.example`. `NEXT_PUBLIC_ENABLE_ANVIL=0`, `NEXT_PUBLIC_E2E=0`.
 - Ensure `web/src/generated.ts` and `web/src/deployments/11155111.json` are committed (Vercel doesn't run Foundry, and the app never imports from `../contracts`).
 - After deploy: open the production URL at 390 px and 1440 px, run the browse + vote flow on Sepolia with a real wallet, check the console.
