@@ -7,7 +7,7 @@
  * so [data-theme] works on any subtree (the Stage page is always dark).
  */
 
-@theme {
+@theme static {
   /* Only our tokens: no default palette, font sizes, shadows or radii leak into components. */
   --color-*: initial;
   --text-*: initial;
