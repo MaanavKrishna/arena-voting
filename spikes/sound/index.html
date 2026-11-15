@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arena sound spike</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0d12; --card:#151922; --line:#2a3140; --fg:#f2f4f8; --dim:#9aa4b5; --ok:#3ddc97; --bad:#ff6b6b; --acc:#7aa2ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:18px/1.45 system-ui,-apple-system,sans-serif; padding:14px; max-width:720px; margin-inline:auto; }
+    h1 { font-size:22px; margin:4px 0 2px; }
+    .sub { color:var(--dim); font-size:15px; margin:0 0 12px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+    .tabs { display:flex; gap:8px; }
+    .tabs button { flex:1; }
+    button { font:inherit; font-weight:600; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:#222a38; color:var(--fg); min-height:52px; }
+    button.primary { background:var(--acc); color:#07101f; border-color:var(--acc); }
+    button.stop { background:var(--bad); color:#220606; border-color:var(--bad); }
+    .tabs button.on { background:var(--acc); color:#07101f; }
+    select, input[type=range] { width:100%; font:inherit; padding:10px; border-radius:10px; background:#0f131b; color:var(--fg); border:1px solid var(--line); min-height:48px; }
+    label { display:block; color:var(--dim); font-size:15px; margin:10px 0 4px; }
+    .big { font-size:34px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    .row > * { flex:1; min-width:120px; }
+    .stat { background:#0f131b; border-radius:10px; padding:10px; }
+    .stat .k { color:var(--dim); font-size:13px; text-transform:uppercase; letter-spacing:.04em; }
+    .hex { font:15px ui-monospace,Menlo,monospace; word-break:break-all; }
+    .log { max-height:260px; overflow:auto; }
+    .log div { border-top:1px solid var(--line); padding:8px 0; }
+    .ok { color:var(--ok); } .bad { color:var(--bad); } .dim { color:var(--dim); }
+    .dot { display:inline-block; width:14px; height:14px; border-radius:50%; background:#444; margin-right:8px; vertical-align:middle; }
+    .dot.live { background:var(--bad); animation:p 0.8s infinite; }
+    @keyframes p { 50% { opacity:.25; } }
+    canvas#wave { width:100%; height:60px; background:#0f131b; border-radius:10px; }
+    #qrbox { text-align:center; } #qrbox canvas { max-width:100%; height:auto !important; background:#fff; border-radius:8px; }
+    video { width:100%; border-radius:12px; background:#000; max-height:320px; }
+    textarea { width:100%; min-height:140px; background:#0f131b; color:var(--fg); border:1px solid var(--line); border-radius:10px; font:13px ui-monospace,Menlo,monospace; padding:8px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <h1>Arena sound spike</h1>
+  <p class="sub">Throwaway device test. Nothing is recorded or uploaded.</p>
+  <div id="env" class="sub"></div>
+
+  <div class="card">
+    <label for="proto">Protocol under test (sender and receiver must match what you note)</label>
+    <select id="proto">
+      <option value="ULTRASOUND_FASTEST">ULTRASOUND_FASTEST</option>
+      <option value="ULTRASOUND_FAST">ULTRASOUND_FAST</option>
+      <option value="ULTRASOUND_NORMAL">ULTRASOUND_NORMAL</option>
+      <option value="AUDIBLE_FASTEST">AUDIBLE_FASTEST</option>
+    </select>
+  </div>
+
+  <div class="tabs">
+    <button data-tab="tx" class="on">Transmit</button>
+    <button data-tab="rx">Receive</button>
+    <button data-tab="qr">Pass QR</button>
+  </div>
+
+  <section id="tab-tx" class="card">
+    <div id="txmode" class="dim"></div>
+    <label for="vol">Volume <span id="volv">60</span>%</label>
+    <input id="vol" type="range" min="0" max="100" value="60" />
+    <p><button id="txbtn" class="primary" style="width:100%">Start</button></p>
+    <p><span id="txdot" class="dot"></span><span id="txstate">Idle</span></p>
+    <div class="row">
+      <div class="stat"><div class="k">Slot</div><div id="txslot" class="big">-</div></div>
+      <div class="stat"><div class="k">Waveform</div><div id="txdur" class="big">-</div></div>
+    </div>
+    <p class="hex" id="txhex"></p>
+    <canvas id="wave" width="600" height="60"></canvas>
+  </section>
+
+  <section id="tab-rx" class="card hidden">
+    <p><button id="rxbtn" class="primary" style="width:100%">Listen</button></p>
+    <p class="dim" id="rxinfo">Mic is off.</p>
+    <div class="row">
+      <div class="stat"><div class="k">Decoded OK</div><div id="rxok" class="big">0</div></div>
+      <div class="stat"><div class="k">Per minute</div><div id="rxpm" class="big">0</div></div>
+      <div class="stat"><div class="k">First decode</div><div id="rxfirst" class="big">-</div></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="stat"><div class="k">Elapsed</div><div id="rxel" class="big">0s</div></div>
+      <div class="stat"><div class="k">Protocol</div><div id="rxproto" class="hex">-</div></div>
+    </div>
+    <div id="rxlog" class="log"></div>
+  </section>
+
+  <section id="tab-qr" class="card hidden">
+    <h2 style="margin:0 0 8px;font-size:20px">Show pass</h2>
+    <p class="dim" style="margin-top:0">Random 259-char text (9-char prefix + 250 base64url), new every 2 s, error correction M.</p>
+    <p><button id="qrshow" class="primary" style="width:100%">Show pass</button></p>
+    <div id="qrbox"></div>
+    <div id="qrinfo" class="dim"></div>
+    <hr style="border-color:var(--line);margin:18px 0" />
+    <h2 style="margin:0 0 8px;font-size:20px">Scan pass</h2>
+    <label for="qrengine">Decoder</label>
+    <select id="qrengine"></select>
+    <p><button id="qrscan" class="primary" style="width:100%">Scan pass</button></p>
+    <video id="qrvideo" playsinline muted class="hidden"></video>
+    <p class="dim" id="qrscaninfo"></p>
+    <div class="row">
+      <div class="stat"><div class="k">First read</div><div id="qrfirst" class="big">-</div></div>
+      <div class="stat"><div class="k">Distinct reads</div><div id="qrcount" class="big">0</div></div>
+    </div>
+    <p><button id="qrreset" style="width:100%">Reset timer (press as the pass comes into view)</button></p>
+    <div id="qrlog" class="log"></div>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 8px;font-size:20px">Results</h2>
+    <p><button id="copy" class="primary" style="width:100%">Copy results as JSON</button></p>
+    <textarea id="json" readonly></textarea>
+  </section>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

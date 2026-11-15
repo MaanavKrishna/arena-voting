@@ -34,7 +34,8 @@ Format: context → decision → alternatives rejected → consequences. Add a n
 ## D-06 · Sound transport — ggwave, pending the device spike
 - **Context:** ggwave 0.4.0 is the only mature browser data-over-sound library but is unmaintained since 2022.
 - **Decision:** Use it behind `lib/beacon/sound.ts`, in a Worker. Protocol and binary vs text payload chosen by the spike.
-- **Spike results:** _fill in after Task 1: devices, protocols, distances, decode times, verdict (ultrasound / audible / QR primary)._
+- **Library findings (2026-11-15, desk-checked, no real devices yet):** ggwave 0.4.0 is one UMD file with the WASM embedded as base64 (no separate .wasm). `encode`/`decode` accept and return **raw `Uint8Array`**, so the 25-byte payload goes as binary (no base64url). Set sample formats to F32 and `payloadLength = 25`; feed `decode` 1024-sample Float32 chunks viewed as `Int8Array`; copy outputs (static buffers). Protocol names: `ProtocolId.GGWAVE_PROTOCOL_{AUDIBLE,ULTRASOUND,DT}_{NORMAL,FAST,FASTEST}`. 25-byte waveform at 48 kHz: ULTRASOUND_FASTEST 0.77 s, FAST 1.54 s, NORMAL 2.30 s, AUDIBLE_FASTEST 0.77 s. `encode` logs to console on every call (silence it in the worker).
+- **Spike results (devices):** _owner runs `spikes/sound` — fill in devices, protocols, distances, decode times, verdict (ultrasound / audible / QR primary)._
 - **Consequence:** If the spike fails, QR beacon becomes primary and sound an optional extra — the contract doesn't change.
 
 ## D-07 · Gas for voters: drip at check-in

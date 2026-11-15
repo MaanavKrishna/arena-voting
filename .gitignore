@@ -28,3 +28,4 @@ web/.e2e-ipfs/
 
 # solidity deps (installed by pnpm setup:contracts)
 contracts/lib/
+spikes/**/dist/
