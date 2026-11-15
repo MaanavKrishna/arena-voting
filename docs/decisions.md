@@ -129,3 +129,8 @@ Format: context → decision → alternatives rejected → consequences. Add a n
 
 ## D-26 · Solidity libraries are installed, not committed
 - **Decision:** `contracts/lib/` is gitignored; `pnpm setup:contracts` installs forge-std v1.17.0 and OpenZeppelin v5.7.0 at pinned tags.
+
+## D-27 · Wallet state restored on the client, no server `initialState`
+- **Context:** With Cache Components on, reading cookies in the root layout forces a Suspense boundary around the whole app and makes every page dynamic.
+- **Decision:** `<WalletProviders>` sits in the client `Providers` without `initialState`; wagmi's cookie storage + reconnect restores the connection after hydration. Pages stay static.
+- **Consequence:** A brief "Connect" → connected flicker on first paint; components show a skeleton until `useConnection` settles. `serverExternalPackages: ["@base-org/account", "@coinbase/cdp-sdk"]` in `next.config.ts` keeps the Base Account SDK's optional deps out of the server bundle.
