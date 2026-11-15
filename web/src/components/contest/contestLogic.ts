@@ -131,6 +131,10 @@ export type VoteGate = {
   presence: number;
   /** Room/Gated proof is ready (always true for Anywhere). */
   presenceReady: boolean;
+  /** Gated: the door check-in has landed. Unknown → `presenceReady` decides alone. */
+  checkedIn?: boolean;
+  /** The phone is listening for the room right now (the room reason reads "Listening for the room…"). */
+  listening?: boolean;
   votedEntryId: number;
   ownEntry: boolean;
   removed: boolean;
@@ -151,13 +155,17 @@ export function voteBlockReason(g: VoteGate): string | null {
   if (!g.connected) return null;
   if (g.votedEntryId !== 0) return "You've already voted in this contest.";
   if (g.ownEntry) return "You can't vote for your own team's entry.";
-  if (g.presence === PRESENCE_GATED && !g.presenceReady) return "Check in at the door, then join the room to vote.";
+  if (g.presence === PRESENCE_GATED && !g.presenceReady && g.checkedIn !== true) {
+    return "Check in at the door, then join the room to vote.";
+  }
   if (g.ticket.hasList && g.presence !== PRESENCE_GATED) {
     if (g.ticket.loading) return "Checking the guest list…";
     if (g.ticket.failed) return "The guest list couldn't be loaded. Try again in a moment.";
     if (!g.ticket.onList) return "This wallet isn't on the guest list.";
   }
-  if (g.presence === PRESENCE_ROOM && !g.presenceReady) return "Join the room to vote.";
+  if ((g.presence === PRESENCE_ROOM || g.presence === PRESENCE_GATED) && !g.presenceReady) {
+    return g.listening ? "Listening for the room…" : "Join the room to vote.";
+  }
   return null;
 }
 

@@ -199,12 +199,33 @@ describe("voteBlockReason", () => {
     );
     expect(voteBlockReason({ ...open, presence: PRESENCE_GATED, presenceReady: true, ticket: listed })).toBeNull();
   });
+
+  it("Gated: checked in but not in the room asks for the room; listening says so", () => {
+    expect(voteBlockReason({ ...open, presence: PRESENCE_GATED, presenceReady: false, checkedIn: false })).toBe(
+      "Check in at the door, then join the room to vote.",
+    );
+    expect(voteBlockReason({ ...open, presence: PRESENCE_GATED, presenceReady: false, checkedIn: true })).toBe(
+      "Join the room to vote.",
+    );
+    expect(
+      voteBlockReason({ ...open, presence: PRESENCE_GATED, presenceReady: false, checkedIn: true, listening: true }),
+    ).toBe("Listening for the room…");
+    expect(voteBlockReason({ ...open, presence: PRESENCE_ROOM, presenceReady: false, listening: true })).toBe(
+      "Listening for the room…",
+    );
+    expect(voteBlockReason({ ...open, presence: PRESENCE_ROOM, presenceReady: true, listening: true })).toBeNull();
+  });
 });
 
 describe("voteArgs", () => {
   it("passes zeros for the beacon and an empty proof by default", () => {
     expect(voteArgs(1n, 2, null)).toEqual([1n, 2, NO_BEACON, []]);
     expect(voteArgs(1n, 2, ["0xab"])).toEqual([1n, 2, NO_BEACON, ["0xab"]]);
+  });
+
+  it("carries the room token for Room/Gated votes", () => {
+    const beacon = { slot: 42, token: "0x0123456789abcdef0123456789abcdef" } as const;
+    expect(voteArgs(3n, 1, null, beacon)).toEqual([3n, 1, beacon, []]);
   });
 });
 

@@ -21,6 +21,7 @@ import { useChainTime } from "@/hooks/useChainTime";
 import { useContest } from "@/hooks/useContest";
 import { useEntries } from "@/hooks/useEntries";
 import { useLiveContest } from "@/hooks/useLiveContest";
+import { isBeaconRevert, usePresence, type BeaconArg } from "@/hooks/usePresence";
 import { useTicketList } from "@/hooks/useTicketList";
 import { useVoterState } from "@/hooks/useVoterState";
 import type { Phase } from "@/lib/phase";
@@ -29,11 +30,12 @@ import { ContestFrame, ContestNotFound, ContestSkeleton, NotDeployed } from "./C
 import { ContestHeader } from "./ContestHeader";
 import { EntryCard, type EntryVoteState } from "./EntryCard";
 import { EntrySheet } from "./EntrySheet";
-import { PresenceSlot } from "./PresenceSlot";
+import { PresenceProvider, PresenceSlot } from "./PresenceSlot";
 import { ResultsPanel } from "./ResultsPanel";
 import { useClaimable } from "./useClaimable";
 import {
   PRESENCE_ANYWHERE,
+  PRESENCE_GATED,
   createResultsMemory,
   entryName,
   isContestNotFound,
@@ -124,6 +126,17 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const [justVoted, setJustVoted] = useState<number | null>(null);
   const votedId = voter.data?.votedEntryId || justVoted || 0;
 
+  // ---- presence (Room / Gated) -------------------------------------------------------------------
+  const votingOpen = phase === "voting";
+  const anywhere = contest.presence === PRESENCE_ANYWHERE;
+  const checkedIn = voter.data?.isCheckedIn === true;
+  // One listening session for the page and the entry sheet; the mic is released once it can't help.
+  const presence = usePresence(contestId, { enabled: votingOpen && !anywhere && !votedId });
+  const presenceReady =
+    anywhere || (contest.presence === PRESENCE_GATED ? checkedIn && presence.inRoom : presence.inRoom);
+  const listening = presence.mic === "on" || presence.mic === "requesting" || presence.state === "validating";
+  const [checkingRoom, setCheckingRoom] = useState(false);
+
   const rows: RankedRow[] = useMemo(
     () =>
       rankEntries(list).map((e) => ({
@@ -172,8 +185,19 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
     const entryId = selected;
     setVoteTarget(entryId);
     const proof = tickets.hasList ? (account ? tickets.proofFor(account) : null) : [];
+    let beacon: BeaconArg | undefined;
+    if (!anywhere) {
+      // Newest token, re-checked on chain right before the wallet opens. If the room has moved on,
+      // the sheet stays open and says "Listening for the room…" until a newer token is heard.
+      if (vote.status === "error") vote.reset();
+      setCheckingRoom(true);
+      const fresh = await presence.freshToken();
+      setCheckingRoom(false);
+      if (!fresh) return;
+      beacon = fresh;
+    }
     const before = votesOf(entryId);
-    const hash = await vote.write({ args: voteArgs(contestId, entryId, proof) });
+    const hash = await vote.write({ args: voteArgs(contestId, entryId, proof, beacon) });
     if (!hash) return;
     navigator.vibrate?.(10);
     setJustVoted(entryId);
@@ -181,6 +205,16 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
     setBeam({ entryId, minVotes: before + 1, from: cardCentre(entryId), to: null });
     void refresh();
   };
+
+  // The token aged out between the check and the simulation: not a failure, just listen again.
+  const invalidateRoom = presence.invalidate;
+  const resetVote = vote.reset;
+  useEffect(() => {
+    if (vote.status === "error" && isBeaconRevert(vote.rawError)) {
+      invalidateRoom();
+      resetVote();
+    }
+  }, [vote.status, vote.rawError, invalidateRoom, resetVote]);
 
   // When the new seat exists, bring the hemicycle into view and fly the beam to it.
   const seatReady = beam !== null && votesOf(beam.entryId) >= beam.minVotes;
@@ -230,15 +264,15 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
 
   // ---- derived UI state ------------------------------------------------------------------------
   const live = liveEntries(list);
-  const votingOpen = phase === "voting";
-  const anywhere = contest.presence === PRESENCE_ANYWHERE;
   const onList = account ? tickets.proofFor(account) !== null : false;
 
   const disabledReason = selectedEntry
     ? voteBlockReason({
         phase,
         presence: contest.presence,
-        presenceReady: anywhere, // Ground replaces PresenceSlot and supplies readiness + beacon token
+        presenceReady,
+        checkedIn,
+        listening,
         votedEntryId: votedId,
         ownEntry: isOwnEntry(selectedEntry, account, contest.organiser),
         removed: selectedEntry.removed,
@@ -267,131 +301,141 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const votedName = votedId ? (names.get(votedId) ?? `Entry ${votedId}`) : null;
 
   return (
-    <ContestFrame>
-      <ContestHeader contest={contest} phase={phase} now={now} />
+    <PresenceProvider presence={presence} checkedIn={checkedIn}>
+      <ContestFrame>
+        <ContestHeader contest={contest} phase={phase} now={now} />
 
-      <div className="mt-8 grid gap-6 md:mt-10 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-8">
-        {/* Action area: what this visitor can do right now. */}
-        <div className="flex flex-col gap-4 empty:hidden lg:col-start-1 lg:row-start-1">
-          <div aria-live="polite" className="empty:hidden">
-            {votedName ? (
-              <div className="bg-verified/10 border-verified/25 flex items-center gap-3 rounded-md border px-4 py-3">
-                <CheckCircle2 className="text-verified-text size-5 shrink-0" strokeWidth={1.75} aria-hidden />
-                <p className="text-callout text-fg">
-                  You voted for <span className="font-semibold">{votedName}</span>
-                  <span className="text-fg-muted"> · Your vote is final and public.</span>
-                </p>
-              </div>
+        <div className="mt-8 grid gap-6 md:mt-10 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-8">
+          {/* Action area: what this visitor can do right now. */}
+          <div className="flex flex-col gap-4 empty:hidden lg:col-start-1 lg:row-start-1">
+            <div aria-live="polite" className="empty:hidden">
+              {votedName ? (
+                <div className="bg-verified/10 border-verified/25 flex items-center gap-3 rounded-md border px-4 py-3">
+                  <CheckCircle2 className="text-verified-text size-5 shrink-0" strokeWidth={1.75} aria-hidden />
+                  <p className="text-callout text-fg">
+                    You voted for <span className="font-semibold">{votedName}</span>
+                    <span className="text-fg-muted"> · Your vote is final and public.</span>
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            {votingOpen && !anywhere && !votedId ? (
+              <PresenceSlot contestId={contestId} presence={contest.presence} placement="floating" />
+            ) : null}
+            {phase === "ended" ? <FinalizeCard action={finalize} onFinalize={onFinalize} /> : null}
+            {showClaim && claim.amount ? (
+              <ClaimCard amount={claim.amount} action={withdraw} onClaim={onClaim} refund={!winsPrize} />
             ) : null}
           </div>
-          {votingOpen && !anywhere && !votedId ? <PresenceSlot contestId={contestId} presence={contest.presence} /> : null}
-          {phase === "ended" ? <FinalizeCard action={finalize} onFinalize={onFinalize} /> : null}
-          {showClaim && claim.amount ? (
-            <ClaimCard amount={claim.amount} action={withdraw} onClaim={onClaim} refund={!winsPrize} />
-          ) : null}
+
+          <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+            <ResultsPanel
+              ref={hemicycle}
+              phase={phase}
+              rows={rows}
+              counts={results.counts}
+              colours={results.colours}
+              names={names}
+              total={results.total}
+              winners={winners}
+              share={shareOf(contest.prize, winners.length)}
+              holdEntry={seatReady && beam ? beam.entryId : null}
+              onSelect={openEntry}
+            />
+          </aside>
+
+          <section aria-labelledby="entries-title" className="lg:col-start-1 lg:row-start-2">
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <h2 id="entries-title" className="text-title-2 text-fg">
+                Entries
+                {live.length ? (
+                  <span className="text-fg-muted tabular ml-2 font-normal">
+                    <span className="sr-only">, </span>
+                    {live.length}
+                  </span>
+                ) : null}
+              </h2>
+            </div>
+            <p className="text-callout text-fg-muted -mt-2 mb-5">{galleryNote}</p>
+            {entries.isError ? (
+              <ErrorState
+                title="We couldn't load the entries."
+                onRetry={() => void entries.refetch()}
+              />
+            ) : !entries.data ? (
+              <div className="grid-gallery">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : live.length === 0 ? (
+              <EmptyState
+                className="solid squircle rounded-md"
+                icon={<Inbox strokeWidth={1.75} aria-hidden />}
+                title="No entries yet"
+                description={
+                  phase === "submissions"
+                    ? "Entries show up here as soon as they're submitted."
+                    : "This contest closed without any entries."
+                }
+              />
+            ) : (
+              <div className="grid-gallery">
+                {live.map((e) => (
+                  <EntryCard
+                    key={e.id}
+                    entryId={e.id}
+                    name={names.get(e.id) ?? `Entry ${e.id}`}
+                    tagline={e.metadataStatus === "ready" ? e.metadata.tagline : ""}
+                    image={e.metadataStatus === "ready" ? e.metadata.image : undefined}
+                    loading={e.metadataStatus === "loading"}
+                    votes={e.votes}
+                    color={colourVar(results.colours.get(e.id))}
+                    voteState={cardState(e.id)}
+                    winner={winners.includes(e.id)}
+                    onOpen={() => openEntry(e.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-          <ResultsPanel
-            ref={hemicycle}
-            phase={phase}
-            rows={rows}
-            counts={results.counts}
-            colours={results.colours}
-            names={names}
-            total={results.total}
-            winners={winners}
-            share={shareOf(contest.prize, winners.length)}
-            holdEntry={seatReady && beam ? beam.entryId : null}
-            onSelect={openEntry}
-          />
-        </aside>
-
-        <section aria-labelledby="entries-title" className="lg:col-start-1 lg:row-start-2">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2 id="entries-title" className="text-title-2 text-fg">
-              Entries
-              {live.length ? (
-                <span className="text-fg-muted tabular ml-2 font-normal">
-                  <span className="sr-only">, </span>
-                  {live.length}
-                </span>
-              ) : null}
-            </h2>
-          </div>
-          <p className="text-callout text-fg-muted -mt-2 mb-5">{galleryNote}</p>
-          {entries.isError ? (
-            <ErrorState
-              title="We couldn't load the entries."
-              onRetry={() => void entries.refetch()}
-            />
-          ) : !entries.data ? (
-            <div className="grid-gallery">
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-          ) : live.length === 0 ? (
-            <EmptyState
-              className="solid squircle rounded-md"
-              icon={<Inbox strokeWidth={1.75} aria-hidden />}
-              title="No entries yet"
-              description={
-                phase === "submissions"
-                  ? "Entries show up here as soon as they're submitted."
-                  : "This contest closed without any entries."
-              }
-            />
-          ) : (
-            <div className="grid-gallery">
-              {live.map((e) => (
-                <EntryCard
-                  key={e.id}
-                  entryId={e.id}
-                  name={names.get(e.id) ?? `Entry ${e.id}`}
-                  tagline={e.metadataStatus === "ready" ? e.metadata.tagline : ""}
-                  image={e.metadataStatus === "ready" ? e.metadata.image : undefined}
-                  loading={e.metadataStatus === "loading"}
-                  votes={e.votes}
-                  color={colourVar(results.colours.get(e.id))}
-                  voteState={cardState(e.id)}
-                  winner={winners.includes(e.id)}
-                  onOpen={() => openEntry(e.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <EntrySheet
-        entry={selectedEntry}
-        name={selectedEntry ? (names.get(selectedEntry.id) ?? `Entry ${selectedEntry.id}`) : ""}
-        color={colourVar(selectedEntry ? results.colours.get(selectedEntry.id) : undefined)}
-        open={sheetVisible}
-        onOpenChange={setSheetOpen}
-        contestId={contestId}
-        presence={contest.presence}
-        votingOpen={votingOpen}
-        votedForThis={selectedEntry !== null && votedId === selectedEntry.id}
-        winner={selectedEntry !== null && winners.includes(selectedEntry.id)}
-        action={voteTarget === selected ? vote : { status: "idle", isBusy: false, error: null }}
-        onVote={() => void onVote()}
-        disabledReason={disabledReason}
-        closedNote={
-          phase === "submissions" || phase === "upcoming"
-            ? "Voting opens when the countdown ends."
-            : "Voting has closed for this contest."
-        }
-      />
-
-      {beam?.to ? (
-        <VoteBeam
-          from={beam.from}
-          to={beam.to}
-          color={colourVar(results.colours.get(beam.entryId))}
-          onDone={() => setBeam(null)}
+        <EntrySheet
+          entry={selectedEntry}
+          name={selectedEntry ? (names.get(selectedEntry.id) ?? `Entry ${selectedEntry.id}`) : ""}
+          color={colourVar(selectedEntry ? results.colours.get(selectedEntry.id) : undefined)}
+          open={sheetVisible}
+          onOpenChange={setSheetOpen}
+          contestId={contestId}
+          presence={contest.presence}
+          votingOpen={votingOpen}
+          votedForThis={selectedEntry !== null && votedId === selectedEntry.id}
+          winner={selectedEntry !== null && winners.includes(selectedEntry.id)}
+          action={
+            voteTarget !== selected
+              ? { status: "idle", isBusy: false, error: null }
+              : checkingRoom
+                ? { status: "simulating", isBusy: true, error: null }
+                : vote
+          }
+          onVote={() => void onVote()}
+          disabledReason={disabledReason}
+          closedNote={
+            phase === "submissions" || phase === "upcoming"
+              ? "Voting opens when the countdown ends."
+              : "Voting has closed for this contest."
+          }
         />
-      ) : null}
-    </ContestFrame>
+
+        {beam?.to ? (
+          <VoteBeam
+            from={beam.from}
+            to={beam.to}
+            color={colourVar(results.colours.get(beam.entryId))}
+            onDone={() => setBeam(null)}
+          />
+        ) : null}
+      </ContestFrame>
+    </PresenceProvider>
   );
 }
