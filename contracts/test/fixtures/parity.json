@@ -1,0 +1,56 @@
+{
+  "seed": "0x14f94bc8901c8df29b409dc8c462974dd08fca3c89eccf2491de580996841490",
+  "chain": {
+    "length": 20,
+    "anchor": "0x7e7345d46c4b24ef3dc041aff7f1ae01",
+    "tokensBySlot": {
+      "0": "0xbdaffec0dd28fd07025630d06093b49e",
+      "7": "0x62132a245b4e86c6eed2dab70e08dbd1",
+      "19": "0xe448f4c3b0f2886055af36b69ba4b7f6"
+    }
+  },
+  "payload": {
+    "contestId": 3,
+    "slot": 7,
+    "hex": "0x01000000030000000762132a245b4e86c6eed2dab70e08dbd1",
+    "base64url": "AQAAAAMAAAAHYhMqJFtOhsbu0tq3Dgjb0Q"
+  },
+  "tickets": {
+    "addresses": [
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    ],
+    "root": "0xdb3e2b3fb628c92842bacf2cb4884b7db3ceacb9eb81c1151d66fbd3efa069fb",
+    "proofs": {
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": [
+        "0x9b0bc27a9e8f6a8a4b2e92b71ac31b44ef9bd5a54f150ed7b7c2668c6b9be039",
+        "0x166a633689f07198f116bd599dbcfafd186431540ba501bc90f55692742b0374"
+      ],
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8": [
+        "0x32235e7434a20509b8e17860e4d7b9b0a551e3696a7eac2153aad4e6c348bc46",
+        "0xe3e347f8d89dba0c928b134cfe6492b90cbb217bee7e19c72413681678e22422"
+      ],
+      "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": [
+        "0xd791b4384f11048b2330e9ec924a5c80226526b5e9d7f65537637981af4d404f",
+        "0x166a633689f07198f116bd599dbcfafd186431540ba501bc90f55692742b0374"
+      ],
+      "0x90F79bf6EB2c4f870365E785982E1f101E93b906": [
+        "0x208697df1b2d4c083944c10909fe1ed6e99c1eaccff33ba129464b28f8245f01",
+        "0xe3e347f8d89dba0c928b134cfe6492b90cbb217bee7e19c72413681678e22422"
+      ]
+    }
+  },
+  "pass": {
+    "chainId": 31337,
+    "arena": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "contestId": 3,
+    "voter": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "sessionKey": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "issuedAt": 1700000000,
+    "typedDataHash": "0x71e64398dbb6618494b9efcbffe9ce29b5a654cb71d5baf3fdeef20754c6e027",
+    "tick": 850000000,
+    "tickDigest": "0xcc8739d96f4efcee146f454979f2231bed00e6398b57135b6d821c85405bc6e9"
+  }
+}

@@ -48,7 +48,7 @@ Solidity reads it with `vm.readFile` + `vm.parseJson*`; Vitest imports it. Both 
 ## Web unit tests (`web/src/**/*.test.ts`)
 - `beacon/chain.test.ts` — chain matches fixture (`tokensBySlot`); `tokenForSlot` = `chain[chain.length - 2 - slot]`; `slotAt(start, now)` returns `null` when `now < start` or past the chain; 60k-link build < 2 s.
 - `beacon/payload.test.ts` — roundtrip; rejects wrong version, wrong length, wrong contest.
-- `pass.test.ts` — matches the `pass` fixture; binary QR roundtrip is exactly 187 bytes; tick ±2 accepted, ±3 rejected; issuedAt `now - 10 min` ok / `-10 min - 1 s` rejected / `now + 31 s` rejected; tampered field rejected; wrong length rejected.
+- `pass.test.ts` — matches the `pass` fixture; binary QR roundtrip is exactly 187 bytes; tick ±2 accepted, ±3 rejected; issuedAt `now - 10 min` ok / `-10 min - 1 s` rejected / `now + 31 s` rejected; tampered `voter`/`contestId`/`sessionKey` fail the tick signature (checked first), tampered `issuedAt` fails the wallet signature; wrong length rejected.
 - `tickets.test.ts` — parse with commas/spaces/newlines; mixed case → checksummed; duplicates removed; invalid lines reported with line numbers; > 2000 rejected; root matches fixture.
 - `errors.test.ts` — every error in `arenaAbi` has copy (needs `pnpm gen`, done at the start of Task 8); user rejection; unknown.
 - `useChainTime` — 40 s offset → warning; normal Sepolia lag (blocks seen 0–12 s late) with a correct clock → **no** warning and offset within 2 s.

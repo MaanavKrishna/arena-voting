@@ -190,6 +190,7 @@ A parliament-style half circle where **every seat is one vote**.
 - **New vote:** seat appears with `spring.celebrate` scale 0 → 1 (+ `VoteBeam` for your own vote).
 - **Empty (n = 0):** a separate placeholder state — faint outline of 100 seats + "No votes yet" (not counted as seats).
 - **Accessibility:** `role="img"` with an `aria-label` summary ("Results: Project A 12 votes, Project B 9…") plus the `RankedList` as the accessible table.
+- The "Others" wedge (entry id 0 in `hemicycle.ts`) always sits last, whatever its votes. Ties in rank and in top-7 selection break by entry id ascending.
 - Implement as SVG (`<circle>` per seat) — fine up to 600 nodes; memoise seat geometry by `n`.
 
 ## 10. Iconography and imagery
