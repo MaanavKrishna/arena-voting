@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party files copied verbatim (ggwave UMD, loaded by the sound worker; D-06).
+    "public/vendor/**",
   ]),
 ]);
 
