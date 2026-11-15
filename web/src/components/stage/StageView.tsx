@@ -27,6 +27,7 @@ import { StartBeacon } from "./StartBeacon";
 import { useBeaconController } from "./useBeaconController";
 import { useStageBurner } from "./useStageBurner";
 import { useTransmitter } from "./useTransmitter";
+import { useAutoStop } from "./useAutoStop";
 import { WinnerReveal, useRevealPreview } from "./WinnerReveal";
 
 const defaultReveal = (contestId: string) => <WinnerReveal contestId={contestId} />;
@@ -69,6 +70,7 @@ export function StageView({ contestId, renderReveal = defaultReveal }: StageView
 
   const phase = contest.phase;
   const voting = phase === "voting";
+  useAutoStop(phase === "ended" || phase === "finalized", transmitter.status, transmitter.stop);
   const burner = useStageBurner({
     contestId: id,
     chain: active?.chain ?? null,
