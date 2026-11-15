@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { env } from "@/config/env";
+import { isE2E } from "@/config/network";
 
 /**
  * E2E stand-in for IPFS: content is stored on disk under a content-derived id and served by
- * `/api/e2e-ipfs/<cid>`. Only on when `NEXT_PUBLIC_E2E=1`, and never on a production deployment.
+ * `/api/e2e-ipfs/<cid>`. Only on in E2E mode (`isE2E`, which requires the local chain), and never
+ * on a production deployment.
  */
-export function e2eIpfsEnabled(): boolean {
-  return env.NEXT_PUBLIC_E2E && process.env.VERCEL_ENV !== "production";
+export function e2eIpfsEnabled(
+  o: { e2e: boolean; vercelEnv: string | undefined } = { e2e: isE2E, vercelEnv: process.env.VERCEL_ENV },
+): boolean {
+  return o.e2e && o.vercelEnv !== "production";
 }
 
 export const E2E_IPFS_DIR = path.join(process.cwd(), ".e2e-ipfs");

@@ -11,6 +11,7 @@ import {
   planHops,
   rebuildVerdict,
   seedStorageKey,
+  sendHops,
   serializeBackup,
   setupDecision,
   type OnChainBeacon,
@@ -181,5 +182,49 @@ describe("beaconFromContest", () => {
     expect(b).toEqual({ anchor: "0x11111111111111111111111111111111", start: 10n, length: 5, rotation: 1, cachedIndex: 5 });
     expect(isBeaconSet(b)).toBe(true);
     expect(isBeaconSet({ ...b, anchor: ZERO16 })).toBe(false);
+  });
+});
+
+describe("sendHops (multi-hop catch-up)", () => {
+  const hops = [
+    { slot: 5, token: "0x05" as Hex },
+    { slot: 9, token: "0x09" as Hex },
+    { slot: 13, token: "0x0d" as Hex },
+  ];
+
+  it("waits for each hop to be mined before simulating the next", async () => {
+    const log: string[] = [];
+    const last = await sendHops(hops, {
+      send: async (h) => {
+        log.push(`send ${h.slot}`);
+        return `0x${h.slot}` as Hex;
+      },
+      confirm: async (hash) => {
+        await new Promise((r) => setTimeout(r, 1));
+        log.push(`mined ${hash}`);
+      },
+    });
+    expect(log).toEqual(["send 5", "mined 0x5", "send 9", "mined 0x9", "send 13", "mined 0x13"]);
+    expect(last).toBe("0x13");
+  });
+
+  it("stops at the first hop that fails", async () => {
+    const sent: number[] = [];
+    await expect(
+      sendHops(hops, {
+        send: async (h) => {
+          sent.push(h.slot);
+          return `0x${h.slot}` as Hex;
+        },
+        confirm: async (hash) => {
+          if (hash === "0x9") throw new Error("reverted");
+        },
+      }),
+    ).rejects.toThrow("reverted");
+    expect(sent).toEqual([5, 9]);
+  });
+
+  it("does nothing without hops", async () => {
+    expect(await sendHops([], { send: async () => "0x1", confirm: async () => {} })).toBeUndefined();
   });
 });

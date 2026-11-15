@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { LOG_CHUNK, fetchLogsChunked, isRangeError } from "./useLogs";
+import { LOG_CHUNK, LOG_CONCURRENCY, fetchLogsChunked, isRangeError } from "./useLogs";
 
 /** A fake chain: one log per block, with an RPC that rejects windows above `maxRange` blocks. */
 function fakeRpc(maxRange: bigint) {
@@ -31,9 +31,37 @@ describe("fetchLogsChunked", () => {
     const { getLogs, calls } = fakeRpc(100n);
     const logs = await fetchLogsChunked({ fromBlock: 0n, toBlock: 399n, getLogs });
     expect(logs).toEqual(Array.from({ length: 400 }, (_, i) => i));
-    // 500→250→125→62 (first try each halving at block 0), then 62-block windows
-    expect(calls.slice(0, 4).map(([f, t]) => t - f + 1n)).toEqual([400n, 250n, 125n, 62n]);
-    expect(calls.slice(3).every(([f, t]) => t - f + 1n <= 62n)).toBe(true);
+    // 500→250→125→62 (each halving retried from block 0), then 62-block windows
+    expect(calls.filter(([f]) => f === 0n).map(([f, t]) => t - f + 1n)).toEqual([400n, 250n, 125n, 62n]);
+    const okCalls = calls.filter(([f, t]) => t - f + 1n <= 100n);
+    expect(okCalls.every(([f, t]) => t - f + 1n <= 62n)).toBe(true);
+    // once the size has dropped, windows not yet planned start at the smaller size
+    const firstOk = calls.findIndex(([f, t]) => t - f + 1n <= 62n);
+    expect(calls.slice(firstOk).every(([f, t]) => t - f + 1n <= 125n)).toBe(true);
+  });
+
+  it("reads up to LOG_CONCURRENCY windows at once and keeps block order", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const getLogs = vi.fn(async (from: bigint, to: bigint) => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      // later windows answer first, to prove the result is reassembled in order
+      await new Promise((r) => setTimeout(r, Number(10_000n - from) / 1000));
+      inFlight--;
+      return Array.from({ length: Number(to - from + 1n) }, (_, i) => Number(from) + i);
+    });
+    const logs = await fetchLogsChunked({ fromBlock: 0n, toBlock: 4_999n, getLogs });
+    expect(LOG_CONCURRENCY).toBe(4);
+    expect(peak).toBe(LOG_CONCURRENCY);
+    expect(getLogs).toHaveBeenCalledTimes(10);
+    expect(logs).toEqual(Array.from({ length: 5_000 }, (_, i) => i));
+  });
+
+  it("halves on range errors while reading in parallel", async () => {
+    const { getLogs } = fakeRpc(100n);
+    const logs = await fetchLogsChunked({ fromBlock: 0n, toBlock: 2_999n, getLogs });
+    expect(logs).toEqual(Array.from({ length: 3_000 }, (_, i) => i));
   });
 
   it("does not swallow other errors", async () => {

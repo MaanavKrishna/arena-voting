@@ -10,13 +10,12 @@ import {
 } from "wagmi";
 import { switchChain } from "wagmi/actions";
 import type { Address } from "viem";
-import { privateKeyToAddress } from "viem/accounts";
-import { ANVIL_KEYS, e2eIndex } from "@/lib/burner";
+import { ANVIL_ADDRESSES, e2eIndex } from "@/lib/burner";
 import { env } from "./env";
-import { chains, rpcUrl } from "./network";
+import { chains, isE2E, rpcUrl } from "./network";
 
 const APP_NAME = "Arena";
-const E2E_ACCOUNTS: readonly Address[] = ANVIL_KEYS.slice(0, 3).map((k) => privateKeyToAddress(k));
+const E2E_ACCOUNTS: readonly Address[] = ANVIL_ADDRESSES;
 
 /**
  * Accounts for the E2E mock connector, with the one picked by `?e2eAccount=n` first (the mock
@@ -65,7 +64,7 @@ export function buildConnectors(flags: ConnectorFlags): CreateConnectorFn[] {
  * compared, so the server pass borrows a fixed value for the synchronous construction and puts the
  * real one back straight after. The browser keeps the real `Math.random`.
  */
-function withStableRandom<T>(build: () => T): T {
+export function withStableRandom<T>(build: () => T): T {
   if (typeof window !== "undefined") return build();
   const real = Math.random;
   Math.random = () => 0.5;
@@ -82,7 +81,7 @@ function makeConfig() {
     chains,
     transports: Object.fromEntries(chains.map((c) => [c.id, http(rpcUrl(c.id))])),
     connectors: buildConnectors({
-      e2e: env.NEXT_PUBLIC_E2E,
+      e2e: isE2E,
       baseAccount: env.NEXT_PUBLIC_ENABLE_BASE_ACCOUNT,
       walletConnectProjectId: env.NEXT_PUBLIC_WC_PROJECT_ID,
       search: browser ? window.location.search : "",
@@ -107,13 +106,13 @@ export function getConfig(): ArenaConfig {
   if (typeof window === "undefined") return makeConfig();
   if (!browserConfig) {
     browserConfig = makeConfig();
-    if (env.NEXT_PUBLIC_E2E) exposeE2EHooks(browserConfig);
+    if (isE2E) exposeE2EHooks(browserConfig);
   }
   return browserConfig;
 }
 
 /**
- * E2E only (NEXT_PUBLIC_E2E): lets a test move the mock wallet to another configured chain, the
+ * E2E only (`isE2E`): lets a test move the mock wallet to another configured chain, the
  * way a user switches networks in their wallet, to exercise the wrong-network prompt
  * (docs/testing.md, errors.spec.ts).
  */

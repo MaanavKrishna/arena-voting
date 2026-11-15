@@ -12,8 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useReducedMotionPref } from "@/components/ui/hooks";
 import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { useNetworkGuard } from "@/components/wallet/NetworkGuard";
-import { chainName } from "@/config/network";
-import { env } from "@/config/env";
+import { chainName, isE2E } from "@/config/network";
 import { useArena } from "@/hooks/useArena";
 import { useContest } from "@/hooks/useContest";
 import { useNow } from "@/hooks/useNow";
@@ -327,7 +326,7 @@ export function GetPassPanel({ contestId, className }: { contestId: ContestId; c
   return (
     <section
       aria-label="Door pass"
-      data-pass={env.NEXT_PUBLIC_E2E ? (text ?? "") : undefined}
+      data-pass={isE2E ? (text ?? "") : undefined}
       data-pass-state={checkedIn ? "in" : key}
       className={cn("solid squircle relative overflow-hidden rounded-lg p-5 shadow-sm md:p-6", className)}
     >

@@ -4,24 +4,36 @@ import {
   isHex,
   nonceManager,
   type Account,
+  type Address,
   type Chain,
   type Hex,
   type PrivateKeyAccount,
   type WalletClient,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { env } from "@/config/env";
-import { rpcUrl, targetChain } from "@/config/network";
+import { isE2E, rpcUrl, targetChain } from "@/config/network";
 
 /**
- * Anvil's default dev accounts. These keys are public and well known (they appear in Foundry's
- * docs); they only ever hold test funds on a local chain.
+ * Addresses of Anvil's default dev accounts 0..2 (public). The E2E mock wallet connects as these;
+ * their keys live in `anvilKeys.ts` and are loaded only in E2E mode.
  */
-export const ANVIL_KEYS: readonly Hex[] = [
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-  "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-  "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+export const ANVIL_ADDRESSES: readonly Address[] = [
+  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
 ];
+
+/**
+ * The Anvil dev keys, or null outside E2E mode. The env is read literally here (not through
+ * `isE2E`) so the bundler can drop this branch, and the `anvilKeys` chunk with it, from any build
+ * that isn't an E2E build.
+ */
+export async function loadAnvilKeys(): Promise<readonly Hex[] | null> {
+  if (process.env.NEXT_PUBLIC_E2E === "1" && process.env.NEXT_PUBLIC_ENABLE_ANVIL === "1") {
+    return (await import("./anvilKeys")).ANVIL_KEYS;
+  }
+  return null;
+}
 
 export type BurnerKind = "stage" | "gate";
 
@@ -37,8 +49,10 @@ export type BurnerOptions = {
   storage?: Pick<Storage, "getItem" | "setItem">;
   /** Query string (with or without the leading "?"); defaults to the page's own. */
   search?: string;
-  /** Defaults to `NEXT_PUBLIC_E2E`. The `?e2eBurner=n` override works only when true. */
+  /** Defaults to `isE2E`. The `?e2eBurner=n` override works only when true. */
   e2e?: boolean;
+  /** Where the dev keys come from; defaults to `loadAnvilKeys` (tests inject their own). */
+  anvilKeys?: () => Promise<readonly Hex[] | null>;
 };
 
 export function burnerStorageKey(kind: BurnerKind, chainId: number, contestId: bigint | number | string): string {
@@ -50,7 +64,7 @@ export function e2eIndex(search: string, param: string): number | null {
   const v = new URLSearchParams(search).get(param);
   if (v === null || !/^\d+$/.test(v)) return null;
   const n = Number(v);
-  return n < ANVIL_KEYS.length ? n : null;
+  return n < ANVIL_ADDRESSES.length ? n : null;
 }
 
 function toAccount(key: Hex): PrivateKeyAccount {
@@ -63,18 +77,19 @@ function toAccount(key: Hex): PrivateKeyAccount {
  * The device's burner key for a stage or gate, created on first use and kept in localStorage.
  * Browser-only: call it from an effect or event handler, never during server render.
  */
-export function getOrCreateBurner(
+export async function getOrCreateBurner(
   kind: BurnerKind,
   chainId: number,
   contestId: bigint | number | string,
   opts: BurnerOptions = {},
-): Burner {
-  const e2e = opts.e2e ?? env.NEXT_PUBLIC_E2E;
+): Promise<Burner> {
+  const e2e = opts.e2e ?? isE2E;
   if (e2e) {
     const search = opts.search ?? (typeof window !== "undefined" ? window.location.search : "");
     const idx = e2eIndex(search, "e2eBurner");
-    if (idx !== null) {
-      const privateKey = ANVIL_KEYS[idx];
+    const keys = idx !== null ? await (opts.anvilKeys ?? loadAnvilKeys)() : null;
+    if (idx !== null && keys) {
+      const privateKey = keys[idx];
       return { privateKey, account: toAccount(privateKey), isE2E: true };
     }
   }

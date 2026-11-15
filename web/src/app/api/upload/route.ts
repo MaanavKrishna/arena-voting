@@ -2,13 +2,14 @@ import { PinataSDK } from "pinata";
 import { z } from "zod";
 import { serverEnv } from "@/config/env.server";
 import { e2eIpfsEnabled } from "../_lib/e2e-ipfs";
+import { isFromArena } from "../_lib/origin";
 import { IMAGE_MAX_BYTES, IMAGE_MIMES, JSON_MAX_BYTES, JSON_MIME, SIGNED_URL_SECONDS } from "../_lib/limits";
 
 /**
  * Hands out a short-lived signed upload URL so the browser can send a file straight to Pinata
  * without ever seeing our API key. The size and type limits are checked here and also baked into
- * the signed URL. There is no rate limiter on purpose (docs/frontend.md): the limits and the
- * 60 s expiry are the only abuse controls.
+ * the signed URL. Abuse controls: size/type limits, the 60 s expiry, refusing requests from
+ * other sites, and a hosting firewall rule (20 requests per minute per IP on /api/upload).
  */
 const Body = z.object({
   kind: z.enum(["image", "json"]),
@@ -21,6 +22,7 @@ function problem(status: number, message: string) {
 }
 
 export async function POST(request: Request) {
+  if (!isFromArena(request)) return problem(403, "Uploads are only accepted from Arena itself.");
   let raw: unknown;
   try {
     raw = await request.json();

@@ -10,7 +10,7 @@ import { NumberTicker } from "@/components/fx/NumberTicker";
 import { Button } from "@/components/ui/Button";
 import { Hemicycle } from "@/components/ui/Hemicycle";
 import { TxButton, type TxButtonProps } from "@/components/wallet/TxButton";
-import { env } from "@/config/env";
+import { isE2E } from "@/config/network";
 import { useArenaWrite } from "@/hooks/useArenaWrite";
 import { useContest } from "@/hooks/useContest";
 import { useEntries, type EntryWithMetadata } from "@/hooks/useEntries";
@@ -20,12 +20,12 @@ import { RevealSequence, type RevealEntry, type RevealModel } from "./RevealSequ
 import { effectivePhase, parseRevealPreview, revealOutcome, type RevealOutcome, type RevealPreview } from "./reveal";
 
 /**
- * `?preview=reveal` (or `closed`) on the Stage, honoured only when NEXT_PUBLIC_E2E is on: shows the
+ * `?preview=reveal` (or `closed`) on the Stage, honoured only in E2E mode (`isE2E`): shows the
  * ended states with the current live tallies, without finalising anything on chain.
  */
 export function useRevealPreview(): RevealPreview {
   const params = useSearchParams();
-  return parseRevealPreview(params.get("preview"), env.NEXT_PUBLIC_E2E);
+  return parseRevealPreview(params.get("preview"), isE2E);
 }
 
 /** Stage panel once voting has ended: "Voting closed" + Finalise, then the winner reveal. */

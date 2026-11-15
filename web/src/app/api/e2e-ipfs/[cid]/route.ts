@@ -5,7 +5,7 @@ import { E2E_CID_PATTERN, E2E_IPFS_DIR, e2eCid, e2eIpfsEnabled } from "../../_li
 import { IMAGE_MAX_BYTES, IMAGE_MIMES, JSON_MAX_BYTES, JSON_MIME } from "../../_lib/limits";
 
 /**
- * E2E-only IPFS stand-in (NEXT_PUBLIC_E2E=1).
+ * E2E-only IPFS stand-in (`isE2E`: NEXT_PUBLIC_E2E=1 with the local chain).
  *   PUT /api/e2e-ipfs/upload?kind=&mime=   stores the body, answers { cid }
  *   GET /api/e2e-ipfs/<cid>                serves it back
  */

@@ -127,6 +127,23 @@ export function planHops(chain: readonly Hex[], onChain: OnChainBeacon, currentS
   return hops;
 }
 
+/**
+ * Sends planned hops strictly one after another: each `advanceBeacon` is simulated against the
+ * state the previous hop left on chain, so `send` (simulate + sign + send) for hop N+1 only starts
+ * once `confirm` says hop N was mined. Stops at the first failure. Returns the last hash.
+ */
+export async function sendHops<H>(
+  hops: readonly BeaconHop[],
+  io: { send: (hop: BeaconHop) => Promise<H>; confirm: (hash: H) => Promise<void> },
+): Promise<H | undefined> {
+  let last: H | undefined;
+  for (const hop of hops) {
+    last = await io.send(hop);
+    await io.confirm(last);
+  }
+  return last;
+}
+
 /** The slot of the newest verified link, or null when nothing is verified yet. */
 export function cachedSlot(onChain: Pick<OnChainBeacon, "length" | "cachedIndex">): number | null {
   if (onChain.cachedIndex >= onChain.length) return null;

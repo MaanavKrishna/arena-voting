@@ -7,7 +7,7 @@ import { arenaAbi } from "@/generated";
 import { useArena } from "@/hooks/useArena";
 import { arenaKeys } from "@/hooks/shared";
 import { burnerWalletClient, getOrCreateBurner, type Burner } from "@/lib/burner";
-import { planHops, type OnChainBeacon } from "@/lib/beacon/stage";
+import { planHops, sendHops, type OnChainBeacon } from "@/lib/beacon/stage";
 import { explainError } from "@/lib/errors";
 
 /** How often the Stage pushes the on-chain cache forward (docs/ground-presence.md, D-14). */
@@ -47,8 +47,13 @@ export function useStageBurner({
   useEffect(() => {
     if (contestId === undefined) return;
     // localStorage is browser-only: create the key after mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBurner(getOrCreateBurner("stage", chainId, contestId));
+    let live = true;
+    void getOrCreateBurner("stage", chainId, contestId).then((b) => {
+      if (live) setBurner(b);
+    });
+    return () => {
+      live = false;
+    };
   }, [chainId, contestId]);
 
   const address: Address | undefined = burner?.account.address;
@@ -91,19 +96,24 @@ export function useStageBurner({
       inFlight.current = true;
       setAdvance({ status: "sending", hops: hops.length });
       try {
-        let last: Hash | undefined;
-        // Hops go back-to-back (the burner's nonce manager orders them); each is simulated first.
-        for (const hop of hops) {
-          const { request } = await client.simulateContract({
-            address: arena,
-            abi: arenaAbi,
-            functionName: "advanceBeacon",
-            args: [contestId, { slot: hop.slot, token: hop.token }],
-            account: burner.account,
-          });
-          last = await wallet.writeContract({ ...request, chain: wallet.chain, account: burner.account });
-        }
-        if (last) await client.waitForTransactionReceipt({ hash: last });
+        // Each hop is simulated against the cache the previous hop wrote, so wait for its receipt
+        // first: simulating hop 2 before hop 1 is mined would revert with BeaconGapTooLarge.
+        const last = await sendHops(hops, {
+          send: async (hop) => {
+            const { request } = await client.simulateContract({
+              address: arena,
+              abi: arenaAbi,
+              functionName: "advanceBeacon",
+              args: [contestId, { slot: hop.slot, token: hop.token }],
+              account: burner.account,
+            });
+            return wallet.writeContract({ ...request, chain: wallet.chain, account: burner.account });
+          },
+          confirm: async (hash: Hash) => {
+            const receipt = await client.waitForTransactionReceipt({ hash });
+            if (receipt.status !== "success") throw new Error("The network turned the room signal step down.");
+          },
+        });
         if (cancelled) return;
         setAdvance({ status: "ok", slot: hops[hops.length - 1].slot, at: Date.now(), hash: last! });
         void queryClient.invalidateQueries({ queryKey: arenaKeys.contest(chainId, contestId) });

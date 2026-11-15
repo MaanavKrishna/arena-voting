@@ -54,9 +54,10 @@ function wrap(tree: StandardMerkleTree<string[]>): TicketTree {
     dump: tree.dump(),
     proofFor(address: Address): Hex[] | null {
       if (!isAddress(address, { strict: false })) return null;
-      const target = getAddress(address);
+      // Published lists may use any letter case: compare addresses, not strings.
+      const target = address.toLowerCase();
       for (const [i, v] of tree.entries()) {
-        if (v[0] === target) return tree.getProof(i) as Hex[];
+        if (typeof v[0] === "string" && v[0].toLowerCase() === target) return tree.getProof(i) as Hex[];
       }
       return null;
     },
@@ -70,6 +71,9 @@ export function buildTicketTree(addresses: Address[]): TicketTree {
   return wrap(StandardMerkleTree.of<string[]>(checksummed.map((a) => [a]), ["address"]));
 }
 
+/** Restores a published tree. Throws on garbage, or when its hashes don't match its values. */
 export function loadTicketTree(dump: unknown): TicketTree {
-  return wrap(StandardMerkleTree.load(dump as StandardMerkleTreeData<string[]>));
+  const tree = StandardMerkleTree.load(dump as StandardMerkleTreeData<string[]>);
+  tree.validate();
+  return wrap(tree);
 }

@@ -201,3 +201,12 @@ export function tickerParts(eth: string): { value: number; decimals: number } {
 export function isContestIdParam(id: string): boolean {
   return /^\d{1,30}$/.test(id) && BigInt(id) > 0n;
 }
+
+/** A value the page set for one connected wallet (a vote just sent, the entry being voted for). */
+export type ForAccount<T> = { account: string | undefined; value: T };
+
+/** The value only while the same wallet is connected; switching accounts drops it. */
+export function forAccount<T>(v: ForAccount<T> | null, account: string | undefined): T | null {
+  if (!v || !account || !v.account) return null;
+  return v.account.toLowerCase() === account.toLowerCase() ? v.value : null;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNetwork, currencyLabel, targetChain } from "./network";
+import { buildNetwork, currencyLabel, isE2E, resolveE2E, targetChain } from "./network";
 
 describe("network", () => {
   it("targets the public testnet by default, with an explorer", () => {
@@ -32,5 +32,26 @@ describe("network", () => {
   it("module exports follow the env (anvil off in tests)", () => {
     expect(targetChain.id).toBe(11155111);
     expect(currencyLabel).toBe("Sepolia ETH");
+  });
+
+  it("module exports follow the env (E2E off in tests)", () => {
+    expect(isE2E).toBe(false);
+  });
+});
+
+describe("resolveE2E", () => {
+  it("is off unless the E2E flag is set", () => {
+    expect(resolveE2E({ e2e: false, isLocal: false })).toBe(false);
+    expect(resolveE2E({ e2e: false, isLocal: true })).toBe(false);
+  });
+  it("is on only together with the local chain", () => {
+    expect(resolveE2E({ e2e: true, isLocal: true })).toBe(true);
+  });
+  it("refuses to load when E2E is on for a public chain", () => {
+    expect(() => resolveE2E({ e2e: true, isLocal: false })).toThrow(/local chain/);
+  });
+  it("refuses to load on a production deployment", () => {
+    expect(() => resolveE2E({ e2e: true, isLocal: true, vercelEnv: "production" })).toThrow(/production/);
+    expect(resolveE2E({ e2e: true, isLocal: true, vercelEnv: "preview" })).toBe(true);
   });
 });

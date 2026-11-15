@@ -38,6 +38,7 @@ import {
   PRESENCE_GATED,
   createResultsMemory,
   entryName,
+  forAccount,
   isContestNotFound,
   isOwnEntry,
   liveEntries,
@@ -46,6 +47,7 @@ import {
   voteArgs,
   voteBlockReason,
   winnersOf,
+  type ForAccount,
 } from "./contestLogic";
 
 /** Contest page client island: picks the state (not deployed / not found / loading / error / loaded). */
@@ -123,7 +125,9 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const names = useMemo(() => new Map(list.map((e) => [e.id, entryName(e)])), [list]);
   const finalized = phase === "finalized";
   const winners = useMemo(() => (finalized ? winnersOf(list) : []), [finalized, list]);
-  const [justVoted, setJustVoted] = useState<number | null>(null);
+  // Kept per wallet: switching accounts must not carry the previous wallet's vote over.
+  const [justVotedBy, setJustVoted] = useState<ForAccount<number> | null>(null);
+  const justVoted = forAccount(justVotedBy, account);
   const votedId = voter.data?.votedEntryId || justVoted || 0;
 
   // ---- presence (Room / Gated) -------------------------------------------------------------------
@@ -131,7 +135,10 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const anywhere = contest.presence === PRESENCE_ANYWHERE;
   const checkedIn = voter.data?.isCheckedIn === true;
   // One listening session for the page and the entry sheet; the mic is released once it can't help.
-  const presence = usePresence(contestId, { enabled: votingOpen && !anywhere && !votedId });
+  const presence = usePresence(contestId, {
+    enabled: votingOpen && !anywhere && !votedId,
+    beaconRotation: contest.beaconRotation,
+  });
   const presenceReady =
     anywhere || (contest.presence === PRESENCE_GATED ? checkedIn && presence.inRoom : presence.inRoom);
   const listening = presence.mic === "on" || presence.mic === "requesting" || presence.state === "validating";
@@ -155,7 +162,8 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const [selected, setSelected] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const selectedEntry = list.find((e) => e.id === selected) ?? null;
-  const [voteTarget, setVoteTarget] = useState<number | null>(null);
+  const [voteTargetBy, setVoteTarget] = useState<ForAccount<number> | null>(null);
+  const voteTarget = forAccount(voteTargetBy, account);
 
   const openEntry = (entryId: number) => {
     if (vote.status === "error" || vote.status === "confirmed") vote.reset();
@@ -183,7 +191,7 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
   const onVote = async () => {
     if (selected === null) return;
     const entryId = selected;
-    setVoteTarget(entryId);
+    setVoteTarget({ account, value: entryId });
     const proof = tickets.hasList ? (account ? tickets.proofFor(account) : null) : [];
     let beacon: BeaconArg | undefined;
     if (!anywhere) {
@@ -200,7 +208,7 @@ function ContestScreen({ contest, phase, now }: { contest: ContestView; phase: P
     const hash = await vote.write({ args: voteArgs(contestId, entryId, proof, beacon) });
     if (!hash) return;
     navigator.vibrate?.(10);
-    setJustVoted(entryId);
+    setJustVoted({ account, value: entryId });
     setSheetOpen(false);
     setBeam({ entryId, minVotes: before + 1, from: cardCentre(entryId), to: null });
     void refresh();

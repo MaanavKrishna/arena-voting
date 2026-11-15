@@ -13,15 +13,14 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useIsClient } from "@/components/ui/hooks";
 import { QRScanner, type ScannerStatus } from "@/components/presence/QRScanner";
-import { currencyLabel } from "@/config/network";
-import { env } from "@/config/env";
+import { currencyLabel, isE2E } from "@/config/network";
 import { arenaAbi } from "@/generated";
 import { useArena } from "@/hooks/useArena";
 import { useContest } from "@/hooks/useContest";
 import { useGate, checkInsLeft, CHECK_IN_GAS, LOW_CHECK_INS, type Verdict } from "@/hooks/useGate";
 import { useTicketList } from "@/hooks/useTicketList";
 import { arenaKeys, parseContestId } from "@/hooks/shared";
-import { burnerWalletClient, getOrCreateBurner } from "@/lib/burner";
+import { burnerWalletClient, getOrCreateBurner, type Burner } from "@/lib/burner";
 import { cn } from "@/lib/cn";
 import { formatEth } from "@/lib/format";
 import { CheckInQueue } from "./CheckInQueue";
@@ -31,7 +30,7 @@ import { haptic, useGateSound } from "./gateSound";
 
 declare global {
   interface Window {
-    /** E2E only (NEXT_PUBLIC_E2E): feed the Gate a scanned string, as if the camera read it. */
+    /** E2E only (`isE2E`): feed the Gate a scanned string, as if the camera read it. */
     __arenaGateScan?: (text: string) => Promise<void>;
   }
 }
@@ -45,11 +44,22 @@ export function GateView({ contestId }: { contestId: string }) {
   const contest = useContest(contestId);
   const tickets = useTicketList(contestId);
 
-  // The Gate's own key: created once per device and contest, kept in localStorage.
-  const burner = useMemo(
-    () => (isClient && id !== undefined ? getOrCreateBurner("gate", chainId, id) : null),
-    [isClient, chainId, id],
-  );
+  // The Gate's own key: created once per device and contest, kept in localStorage (browser-only,
+  // so it's read after mount).
+  const [burnerFor, setBurner] = useState<{ key: string; burner: Burner } | null>(null);
+  const burnerKey = isClient && id !== undefined ? `${chainId}:${id}` : null;
+  useEffect(() => {
+    if (!isClient || id === undefined) return;
+    let live = true;
+    const k = `${chainId}:${id}`;
+    void getOrCreateBurner("gate", chainId, id).then((b) => {
+      if (live) setBurner({ key: k, burner: b });
+    });
+    return () => {
+      live = false;
+    };
+  }, [isClient, chainId, id]);
+  const burner = burnerFor && burnerFor.key === burnerKey ? burnerFor.burner : null;
   const gateAddress = burner?.account.address;
   const walletClient = useMemo(() => (burner ? burnerWalletClient(burner.account) : null), [burner]);
 
@@ -107,7 +117,7 @@ export function GateView({ contestId }: { contestId: string }) {
   // E2E: no camera in headless browsers, so tests hand the Gate the decoded text directly.
   const { onScan } = gate;
   useEffect(() => {
-    if (!env.NEXT_PUBLIC_E2E) return;
+    if (!isE2E) return;
     window.__arenaGateScan = onScan;
     return () => {
       delete window.__arenaGateScan;

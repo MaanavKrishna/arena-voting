@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { cn } from "@/components/ui/cn";
 import { PRESENCE_ANYWHERE, PRESENCE_GATED, isContestNotFound } from "@/components/contest/contestLogic";
-import { env } from "@/config/env";
+import { isE2E } from "@/config/network";
 import { useArena } from "@/hooks/useArena";
 import { useChainTime } from "@/hooks/useChainTime";
 import { useContest } from "@/hooks/useContest";
@@ -119,7 +119,7 @@ export function StageView({ contestId, renderReveal = defaultReveal }: StageView
       className="relative flex min-h-dvh flex-col gap-5 px-5 py-5 md:gap-6 md:px-10 md:py-8 lg:h-dvh lg:min-h-0"
       data-stage-root=""
       data-flow={flow.kind}
-      {...(env.NEXT_PUBLIC_E2E && beacon.payloadHex ? { "data-beacon-payload": beacon.payloadHex } : {})}
+      {...(isE2E && beacon.payloadHex ? { "data-beacon-payload": beacon.payloadHex } : {})}
     >
       {/* Ambient: Aurora before voting opens; the live panel carries BorderBeam instead (never both). */}
       {!voting && !ended ? <Aurora className="-z-10" intensity={0.3} /> : null}

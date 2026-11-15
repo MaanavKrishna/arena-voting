@@ -170,6 +170,13 @@ export type GateAction =
 
 const key = (a: Address) => a.toLowerCase();
 
+function withoutKey(set: Record<string, true>, k: string): Record<string, true> {
+  if (!set[k]) return set;
+  const rest = { ...set };
+  delete rest[k];
+  return rest;
+}
+
 function patch(state: GateState, id: number, f: (q: QueueItem) => QueueItem | null): GateState {
   let changed = false;
   const queue = state.queue.map((q) => {
@@ -237,15 +244,24 @@ export function gateReducer(state: GateState, a: GateAction): GateState {
     case "tx-confirmed":
       return patch(state, a.id, (q) => ({ ...q, status: "confirmed", error: undefined }));
 
-    case "tx-failed":
-      return patch(state, a.id, (q) =>
+    case "tx-failed": {
+      const item = state.queue.find((q) => q.id === a.id);
+      const next = patch(state, a.id, (q) =>
         a.alreadyIn
           ? { ...q, status: "confirmed", error: undefined, note: "Already checked in at another gate" }
           : { ...q, status: "failed", error: a.error },
       );
+      if (a.alreadyIn || !item || next === state) return next;
+      // Not in after all: take the wallet off the local list so a rescan (or Retry) can admit it.
+      return { ...next, checkedIn: withoutKey(next.checkedIn, key(item.voter)) };
+    }
 
-    case "retry":
-      return patch(state, a.id, (q) => (q.status === "failed" ? { ...q, status: "queued", error: undefined } : null));
+    case "retry": {
+      const next = patch(state, a.id, (q) => (q.status === "failed" ? { ...q, status: "queued", error: undefined } : null));
+      if (next === state) return next;
+      const item = next.queue.find((q) => q.id === a.id)!;
+      return { ...next, checkedIn: { ...next.checkedIn, [key(item.voter)]: true } };
+    }
   }
 }
 

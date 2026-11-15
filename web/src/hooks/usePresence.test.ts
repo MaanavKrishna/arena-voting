@@ -85,6 +85,58 @@ describe("presenceReducer", () => {
     expect(presenceReducer(s, { type: "heard", token: tok(11, 2500) }).status).toBe("validating");
   });
 
+  it("only the exact refused (slot, token) is skipped: another chain's token for that slot or an earlier one is checked", () => {
+    const t = tok(10, 2000);
+    const s = run(
+      [
+        { type: "heard", token: t },
+        { type: "rejected", slot: 10, token: t.token, reason: "invalid" },
+      ],
+      listening(),
+    );
+    const other: HeardToken = { ...tok(10, 2500), token: `0x${"ab".repeat(16)}` as Hex };
+    expect(presenceReducer(s, { type: "heard", token: other }).status).toBe("validating");
+    expect(presenceReducer(s, { type: "heard", token: tok(4, 2500) }).status).toBe("validating");
+  });
+
+  it("a beacon rotation drops the old chain's token, candidate and refusal, and keeps listening", () => {
+    const s = inRoom(); // slot 10
+    const refused = run(
+      [
+        { type: "heard", token: tok(11, 3000) },
+        { type: "rejected", slot: 11, token: tok(11, 3000).token, reason: "invalid" },
+      ],
+      s,
+    );
+    const r = presenceReducer(refused, { type: "rotated", at: 4000 });
+    expect(r.token).toBeNull();
+    expect(r.candidate).toBeNull();
+    expect(r.rejected).toBeNull();
+    expect(r.refused).toBeNull();
+    expect(r.mic).toBe("on");
+    expect(r.status).toBe("listening");
+    expect(r.listenSince).toBe(4000);
+    // The new chain's slots can be lower than the old token's.
+    const t = tok(3, 5000);
+    expect(presenceReducer(r, { type: "heard", token: t }).status).toBe("validating");
+  });
+
+  it("Listen again forgets an earlier refusal", () => {
+    const t = tok(10, 2000);
+    const s = run(
+      [
+        { type: "heard", token: t },
+        { type: "rejected", slot: 10, token: t.token, reason: "network" },
+        { type: "listen" },
+        { type: "mic-granted", at: 3000 },
+      ],
+      listening(),
+    );
+    expect(s.refused).toBeNull();
+    expect(s.rejected).toBeNull();
+    expect(presenceReducer(s, { type: "heard", token: tok(10, 3500) }).status).toBe("validating");
+  });
+
   it("listening → offer-qr after 15 s with no token (still listening)", () => {
     const s = listening();
     expect(presenceReducer(s, { type: "tick", now: 1000 + OFFER_QR_AFTER_MS - 1 }).status).toBe("listening");

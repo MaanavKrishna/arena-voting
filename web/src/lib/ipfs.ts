@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { env } from "@/config/env";
+import { isE2E } from "@/config/network";
 
 /** Local stand-in for the IPFS gateways, served by `/api/e2e-ipfs/[cid]` in E2E mode. */
 export const E2E_GATEWAY = "/api/e2e-ipfs";
@@ -8,11 +9,28 @@ const FETCH_TIMEOUT_MS = 8_000;
 
 export type ParsedIpfs = { cid: string; path: string };
 
-/** Splits `ipfs://<cid>[/path]` (also bare `<cid>[/path]`). `null` for anything else. */
+/**
+ * True when a path stays inside its CID: no `.` or `..` segments (also percent-encoded), and no
+ * backslashes (some servers treat them as `/`). Gateways resolve dot segments, so `ipfs://x/../..`
+ * would otherwise point at a different path on the gateway host.
+ */
+export function isSafeIpfsPath(path: string): boolean {
+  if (/\\|%5c/i.test(path)) return false;
+  return path
+    .split("/")
+    .every((seg) => {
+      const s = seg.replace(/%2e/gi, ".");
+      return s !== "." && s !== "..";
+    });
+}
+
+/** Splits `ipfs://<cid>[/path]` (also bare `<cid>[/path]`). `null` for anything else, or an unsafe path. */
 export function parseIpfsUri(uri: string): ParsedIpfs | null {
   const m = /^(?:ipfs:\/\/)?([A-Za-z0-9]{1,128})(\/[^\s?#]*)?$/.exec(uri.trim());
   if (!m) return null;
-  return { cid: m[1], path: m[2] ?? "" };
+  const path = m[2] ?? "";
+  if (!isSafeIpfsPath(path)) return null;
+  return { cid: m[1], path };
 }
 
 /** Accepts `my.mypinata.cloud` or a full URL; returns a base URL with no trailing slash. */
@@ -42,7 +60,7 @@ export function gatewayList(opts: { pinata?: string; e2e?: boolean } = {}): stri
 }
 
 export function defaultGateways(): string[] {
-  return gatewayList({ pinata: env.NEXT_PUBLIC_PINATA_GATEWAY, e2e: env.NEXT_PUBLIC_E2E });
+  return gatewayList({ pinata: env.NEXT_PUBLIC_PINATA_GATEWAY, e2e: isE2E });
 }
 
 /** URL for displaying an image or file: the first configured gateway. */

@@ -34,6 +34,11 @@ describe("EntryMetadata", () => {
   it("image must be ipfs://", () => {
     expect(EntryMetadata.safeParse({ ...entry, image: "ipfs://bafybeigdyrzt" }).success).toBe(true);
     expect(EntryMetadata.safeParse({ ...entry, image: "https://x.com/a.png" }).success).toBe(false);
+    expect(EntryMetadata.safeParse({ ...entry, image: "ipfs://bafybeigdyrzt/a/b.png" }).success).toBe(true);
+    for (const bad of ["ipfs://bafybeigdyrzt/..", "ipfs://bafybeigdyrzt/../../api/upload", "ipfs://bafybeigdyrzt/./a", "ipfs://bafybeigdyrzt/%2e%2e/x", "ipfs://bafybeigdyrzt/a\\b"]) {
+      expect(EntryMetadata.safeParse({ ...entry, image: bad }).success, bad).toBe(false);
+      expect(ContestMetadata.safeParse({ version: 1, description: "", cover: bad }).success, bad).toBe(false);
+    }
   });
 
   it("links: https only, label <= 40, url <= 200 bytes, max 4", () => {

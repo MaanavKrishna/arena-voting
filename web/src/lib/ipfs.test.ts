@@ -22,6 +22,15 @@ describe("ipfs uri helpers", () => {
     expect(parseIpfsUri("")).toBeNull();
   });
 
+  it("refuses paths that climb out of the CID (dot segments, backslashes, encoded dots)", () => {
+    for (const path of ["/..", "/../x", "/a/../../b", "/./a", "/a/.", "/%2e%2e/x", "/%2E%2e", "/a/%2e/b", "/.%2e/x", "/a\\b", "/%5c..", "/%5C"]) {
+      expect(parseIpfsUri(`ipfs://${CID}${path}`), path).toBeNull();
+      expect(ipfsToHttp(`ipfs://${CID}${path}`, "https://ipfs.io"), path).toBeNull();
+    }
+    // dots inside names are fine
+    expect(parseIpfsUri(`ipfs://${CID}/a.b/..c/d..`)).toEqual({ cid: CID, path: "/a.b/..c/d.." });
+  });
+
   it("builds gateway urls", () => {
     expect(ipfsToHttp(`ipfs://${CID}`, "https://ipfs.io")).toBe(`https://ipfs.io/ipfs/${CID}`);
     expect(ipfsToHttp(`ipfs://${CID}/m.json`, "https://ipfs.io/")).toBe(`https://ipfs.io/ipfs/${CID}/m.json`);

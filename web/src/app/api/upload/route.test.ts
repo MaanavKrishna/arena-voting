@@ -21,16 +21,19 @@ vi.mock("../_lib/e2e-ipfs", () => ({ e2eIpfsEnabled: () => state.e2e }));
 
 import { POST } from "./route";
 
-const call = (body: unknown) =>
+const HOST = "https://arena-preview.example";
+const call = (body: unknown, headers: Record<string, string> = { origin: HOST }) =>
   POST(
-    new Request("http://localhost/api/upload", {
+    new Request(`${HOST}/api/upload`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...headers },
       body: typeof body === "string" ? body : JSON.stringify(body),
     }),
   );
+const ok = { kind: "json", size: 10, mime: "application/json" };
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   state.jwt = "jwt";
   state.e2e = false;
   createSignedURL.mockReset().mockResolvedValue("https://uploads.pinata.cloud/signed");
@@ -91,5 +94,45 @@ describe("POST /api/upload", () => {
     const res = await call({ kind: "image", size: 10, mime: "image/webp" });
     expect(await res.json()).toEqual({ url: "/api/e2e-ipfs/upload?kind=image&mime=image%2Fwebp", method: "PUT" });
     expect(createSignedURL).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/upload: only from Arena itself", () => {
+  const refused = async (res: Response) => {
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Uploads are only accepted from Arena itself." });
+    expect(createSignedURL).not.toHaveBeenCalled();
+  };
+
+  it("accepts the request's own origin, or its referer when there's no Origin header", async () => {
+    expect((await call(ok, { origin: HOST })).status).toBe(200);
+    expect((await call(ok, { referer: `${HOST}/create?step=2` })).status).toBe(200);
+  });
+
+  it("accepts the production host", async () => {
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "arena-voting.example");
+    expect((await call(ok, { origin: "https://arena-voting.example" })).status).toBe(200);
+  });
+
+  it("refuses another site", async () => {
+    await refused(await call(ok, { origin: "https://evil.example" }));
+    await refused(await call(ok, { referer: "https://evil.example/page" }));
+    await refused(await call(ok, { origin: "https://arena-preview.example.evil.example" }));
+    await refused(await call(ok, { origin: "null" }));
+  });
+
+  it("refuses a request with neither Origin nor Referer", async () => {
+    await refused(await call(ok, {}));
+  });
+
+  it("allows http://localhost:3000 only outside production", async () => {
+    expect((await call(ok, { origin: "http://localhost:3000" })).status).toBe(200);
+    createSignedURL.mockClear();
+    vi.stubEnv("VERCEL_ENV", "production");
+    await refused(await call(ok, { origin: "http://localhost:3000" }));
+  });
+
+  it("checks the origin before reading the body", async () => {
+    await refused(await call("not json", { origin: "https://evil.example" }));
   });
 });

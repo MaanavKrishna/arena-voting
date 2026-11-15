@@ -30,46 +30,76 @@ export function isRangeError(err: unknown): boolean {
 
 export type LogChunkCache<T> = Map<string, T[]>;
 
+/** Windows read at the same time. Small, so public RPCs don't rate-limit a cold /me page. */
+export const LOG_CONCURRENCY = 4;
+
+type Window = { from: bigint; to: bigint; size: bigint };
+
 /**
- * Reads logs in `chunk`-block windows from `fromBlock` to `toBlock`. When the node rejects a window
- * as too large the window halves (and stays smaller for the rest of the run). Windows that end at
- * or before `cacheUpTo` are cached under `cachePrefix`, so a refetch only re-reads the recent tail.
+ * Reads logs in `chunk`-block windows from `fromBlock` to `toBlock`, up to `concurrency` windows
+ * at a time, and returns them in block order. When the node rejects a window as too large, the
+ * window size halves (and stays smaller for the rest of the run) and that window is re-read in
+ * the smaller size. Windows that end at or before `cacheUpTo` are cached under `cachePrefix`, so
+ * a refetch only re-reads the recent tail.
  */
 export async function fetchLogsChunked<T>(o: {
   fromBlock: bigint;
   toBlock: bigint;
   getLogs: (from: bigint, to: bigint) => Promise<T[]>;
   chunk?: bigint;
+  concurrency?: number;
   cache?: LogChunkCache<T>;
   cachePrefix?: string;
   cacheUpTo?: bigint;
 }): Promise<T[]> {
-  const out: T[] = [];
   let size = o.chunk ?? LOG_CHUNK;
   let cursor = o.fromBlock;
-  while (cursor <= o.toBlock) {
+  const redo: Window[] = [];
+  const done: { from: bigint; logs: T[] }[] = [];
+  let failure: { err: unknown } | null = null;
+
+  const take = (): Window | null => {
+    const again = redo.shift();
+    if (again) return again;
+    if (cursor > o.toBlock) return null;
     const end = cursor + size - 1n > o.toBlock ? o.toBlock : cursor + size - 1n;
-    const key = `${o.cachePrefix ?? ""}:${cursor}-${end}`;
-    const hit = o.cache?.get(key);
-    if (hit) {
-      out.push(...hit);
-      cursor = end + 1n;
-      continue;
-    }
-    try {
-      const logs = await o.getLogs(cursor, end);
-      if (o.cache && o.cacheUpTo !== undefined && end <= o.cacheUpTo) o.cache.set(key, logs);
-      out.push(...logs);
-      cursor = end + 1n;
-    } catch (err) {
-      if (size > 1n && isRangeError(err)) {
-        size = size / 2n || 1n;
+    const w = { from: cursor, to: end, size };
+    cursor = end + 1n;
+    return w;
+  };
+
+  const worker = async () => {
+    for (let w = take(); w && !failure; w = take()) {
+      const key = `${o.cachePrefix ?? ""}:${w.from}-${w.to}`;
+      const hit = o.cache?.get(key);
+      if (hit) {
+        done.push({ from: w.from, logs: hit });
         continue;
       }
-      throw err;
+      try {
+        const logs = await o.getLogs(w.from, w.to);
+        if (o.cache && o.cacheUpTo !== undefined && w.to <= o.cacheUpTo) o.cache.set(key, logs);
+        done.push({ from: w.from, logs });
+      } catch (err) {
+        if (w.to > w.from && isRangeError(err)) {
+          const half = w.size / 2n || 1n;
+          if (half < size) size = half;
+          const step = size;
+          for (let f = w.from; f <= w.to; f += step) {
+            redo.push({ from: f, to: f + step - 1n > w.to ? w.to : f + step - 1n, size: step });
+          }
+          continue;
+        }
+        failure = { err };
+      }
     }
-  }
-  return out;
+  };
+
+  const n = Math.max(1, o.concurrency ?? LOG_CONCURRENCY);
+  await Promise.all(Array.from({ length: n }, worker));
+  if (failure) throw (failure as { err: unknown }).err;
+  done.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+  return done.flatMap((d) => d.logs);
 }
 
 const chunkCache: LogChunkCache<unknown> = new Map();

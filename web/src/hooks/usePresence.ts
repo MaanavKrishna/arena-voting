@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Hex } from "viem";
-import { env } from "@/config/env";
+import { isE2E } from "@/config/network";
 import { arenaAbi } from "@/generated";
 import { decodePayload, QR_PREFIX } from "@/lib/beacon/payload";
 import { isSoundSupported, startReceive, type ReceiveHandle } from "@/lib/beacon/sound";
@@ -22,6 +22,8 @@ import { useArena } from "./useArena";
  * The reducer is pure: every time it needs comes in on the action (performance.now()), so the
  * phone never depends on its wall clock. Tokens are kept by slot: only a strictly newer slot
  * replaces the current one, and a token's age runs from the moment that slot was first heard.
+ * A refused token is remembered as its exact (slot, token) pair, so a new beacon chain (rotation)
+ * is never shut out; a rotation or "Tap to listen again" forgets the old chain's state.
  */
 
 /** A token is stale after this long without a newer one (performance.now age). */
@@ -59,8 +61,8 @@ export type PresenceState = {
   /** The last valid token aged out or failed the pre-vote check. */
   lost: boolean;
   rejected: RejectReason | null;
-  /** Slot of the last refused token, so the same slot repeating isn't checked again. */
-  rejectedSlot: number | null;
+  /** The last refused (slot, token), so the same token repeating isn't checked again. */
+  refused: { slot: number; token: Hex } | null;
   /** Counts accepted heard tokens (drives the orb ripple). */
   pulse: number;
   /** Last performance.now() the reducer saw. */
@@ -77,6 +79,8 @@ export type PresenceAction =
   | { type: "validated"; slot: number; token: Hex }
   | { type: "rejected"; slot: number; token: Hex; reason: RejectReason }
   | { type: "invalidate"; at: number }
+  /** The organiser set a new beacon chain: tokens from the old one mean nothing now. */
+  | { type: "rotated"; at: number }
   | { type: "tick"; now: number }
   | { type: "stop" };
 
@@ -90,7 +94,7 @@ export const initialPresence: PresenceState = {
   qrOffered: false,
   lost: false,
   rejected: null,
-  rejectedSlot: null,
+  refused: null,
   pulse: 0,
   now: 0,
 };
@@ -119,7 +123,7 @@ const same = (a: { slot: number; token: Hex } | null, slot: number, token: Hex) 
 export function presenceReducer(state: PresenceState, action: PresenceAction): PresenceState {
   switch (action.type) {
     case "listen":
-      return settle({ ...state, mic: "requesting", micProblem: null });
+      return settle({ ...state, mic: "requesting", micProblem: null, rejected: null, refused: null });
     case "mic-granted":
       return settle({
         ...state,
@@ -152,7 +156,7 @@ export function presenceReducer(state: PresenceState, action: PresenceAction): P
       const newest =
         state.candidate && (!state.token || state.candidate.slot > state.token.slot) ? state.candidate : state.token;
       if (newest && t.slot <= newest.slot) return state; // same slot repeating, or an older one
-      if (state.rejectedSlot !== null && t.slot <= state.rejectedSlot) return state; // already refused
+      if (same(state.refused, t.slot, t.token)) return state; // already refused
       return settle({
         ...state,
         candidate: t,
@@ -178,7 +182,7 @@ export function presenceReducer(state: PresenceState, action: PresenceAction): P
         ...state,
         candidate: null,
         rejected: action.reason,
-        rejectedSlot: action.slot,
+        refused: { slot: action.slot, token: action.token },
       });
     }
     case "invalidate":
@@ -187,6 +191,18 @@ export function presenceReducer(state: PresenceState, action: PresenceAction): P
         ...state,
         token: null,
         lost: true,
+        qrOffered: false,
+        listenSince: state.mic === "on" ? action.at : state.listenSince,
+        now: Math.max(state.now, action.at),
+      });
+    case "rotated":
+      return settle({
+        ...state,
+        token: null,
+        candidate: null,
+        rejected: null,
+        refused: null,
+        lost: false,
         qrOffered: false,
         listenSince: state.mic === "on" ? action.at : state.listenSince,
         now: Math.max(state.now, action.at),
@@ -283,7 +299,7 @@ function micProblemOf(err: unknown): MicProblem {
 
 declare global {
   interface Window {
-    /** E2E only (NEXT_PUBLIC_E2E): feed a payload as if the sound worker had decoded it. */
+    /** E2E only (`isE2E`): feed a payload as if the sound worker had decoded it. */
     __arenaInjectBeacon?: (payloadHex: string) => boolean;
   }
 }
@@ -295,8 +311,9 @@ export type BeaconArg = { slot: number; token: Hex };
  * prompt need a user gesture). `freshToken()` is the pre-wallet check: newest token, re-validated
  * with `isBeaconTokenValid`; null (and back to listening) if the room signal moved on.
  */
-export function usePresence(contestId: bigint, opts: { enabled?: boolean } = {}) {
+export function usePresence(contestId: bigint, opts: { enabled?: boolean; beaconRotation?: number } = {}) {
   const enabled = opts.enabled ?? true;
+  const rotation = opts.beaconRotation;
   const { client, address } = useArena();
   const [state, dispatch] = useReducer(presenceReducer, initialPresence);
   const rx = useRef<ReceiveHandle | null>(null);
@@ -400,6 +417,15 @@ export function usePresence(contestId: bigint, opts: { enabled?: boolean } = {})
     };
   }, [candidate, client, address, contestId]);
 
+  // A new beacon chain: drop everything heard from the old one (first value is just the baseline).
+  const seenRotation = useRef(rotation);
+  useEffect(() => {
+    if (rotation === undefined || rotation === seenRotation.current) return;
+    const first = seenRotation.current === undefined;
+    seenRotation.current = rotation;
+    if (!first) dispatch({ type: "rotated", at: performance.now() });
+  }, [rotation]);
+
   // One clock for staleness, the QR offer and the visible age.
   const ticking = state.mic === "on" || state.mic === "paused" || state.token !== null;
   useEffect(() => {
@@ -418,7 +444,7 @@ export function usePresence(contestId: bigint, opts: { enabled?: boolean } = {})
 
   // E2E: the same path the sound worker feeds.
   useEffect(() => {
-    if (!env.NEXT_PUBLIC_E2E || !enabled) return;
+    if (!isE2E || !enabled) return;
     const inject = (hex: string) => handleIncoming(hex, "e2e");
     window.__arenaInjectBeacon = inject;
     return () => {

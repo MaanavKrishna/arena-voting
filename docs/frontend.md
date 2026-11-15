@@ -89,8 +89,8 @@ web/
 createConfig({
   chains: env.NEXT_PUBLIC_ENABLE_ANVIL ? [foundry, sepolia] : [sepolia],
   transports: { [sepolia.id]: http(env.NEXT_PUBLIC_SEPOLIA_RPC_URL), [foundry.id]: http("http://127.0.0.1:8545") },
-  connectors: env.NEXT_PUBLIC_E2E
-    ? [mock({ accounts: [ANVIL_0, ANVIL_1, ANVIL_2] })]
+  connectors: isE2E   // config/network.ts: NEXT_PUBLIC_E2E && NEXT_PUBLIC_ENABLE_ANVIL (throws otherwise)
+    ? [mock({ accounts: ANVIL_ADDRESSES })]   // addresses only; the keys load lazily in E2E (lib/anvilKeys.ts)
     : [injected(), walletConnect({ projectId: env.NEXT_PUBLIC_WC_PROJECT_ID, showQrModal: false, metadata }), baseAccount({ appName: "Arena" })],
   multiInjectedProviderDiscovery: true,   // EIP-6963: lists every installed wallet
   ssr: true,
@@ -115,7 +115,7 @@ All contract access goes through the generated ABI (`src/generated.ts`, `arenaAb
 | `useContest(id)` | `ContestView` + derived `phase` | `getContest`; refetch on any event for this id |
 | `useEntries(id)` | `EntryView[]` + metadata | `getEntries` + `useMetadata` per entry |
 | `useVoterState(id)` | `{ votedEntryId, isCheckedIn }` | `voterState` for connected account |
-| `useLiveContest(id)` | — | `useWatchContractEvent` for `VoteCast`, `CheckedIn`, `EntrySubmitted`, `ContestFinalized` filtered by `contestId` → `queryClient.invalidateQueries` |
+| `useLiveContest(id)` | — | `useWatchContractEvent` for `VoteCast`, `CheckedIn`, `EntrySubmitted`, `EntryWithdrawn`, `ContestFinalized`, `BeaconSet`, `BeaconAdvanced`, `TicketListSet`, `GatekeeperSet` (`LIVE_EVENTS`) filtered by `contestId` → `queryClient.invalidateQueries` on the contest key (plus the `GatekeeperSet` log history for `GatekeeperSet`) |
 | `useNow()` | `bigint` seconds | 1 s tick (shared, single interval) |
 | `useChainTime()` | `{ now, offset, skewWarning }` | max-of-fresh-samples offset, poll every 2 s (algorithm in ground-presence.md#timing); warning if `|offset| > 15 s` |
 | `useMetadata(uri)` | parsed JSON or fallback | react-query, `staleTime: Infinity`, gateways in order: Pinata dedicated → `ipfs.io` → `dweb.link` |
@@ -168,7 +168,8 @@ The vote button uses the newest token at the moment of simulation and re-checks 
 - `POST { kind: "image" | "json", size, mime }` → returns a short-lived **Pinata signed upload URL** (60 s, size and MIME limited: images ≤ 4 MB `image/png|jpeg|webp|gif`, JSON ≤ 64 KB). The client uploads directly to Pinata with that URL, then stores `ipfs://<cid>`.
 - `PINATA_JWT` is server-only (no `NEXT_PUBLIC_`). Check the current pinata SDK method names in its docs at implementation time — they changed between v1 and v2.
 - Abuse limits: size + MIME limits and the 60 s signed-URL expiry only. **No rate limiter** (an in-memory one doesn't work on serverless, and a KV store would add server state). Note this in the README's limits.
-- **E2E mode** (`NEXT_PUBLIC_E2E=1`): the route returns a deterministic fake CID (sha-256 of the content) and writes the content to `web/.e2e-ipfs/<cid>` (gitignored); `/api/e2e-ipfs/[cid]` serves it, and `useMetadata` tries that path first. Never enabled in production builds.
+- **Same-site only:** the route answers 403 unless `Origin` (or, without it, `Referer`) is the request's own host, the production host (`VERCEL_PROJECT_PRODUCTION_URL`), or `http://localhost:3000` outside production (`app/api/_lib/origin.ts`).
+- **E2E mode** (`isE2E`: `NEXT_PUBLIC_E2E=1` with `NEXT_PUBLIC_ENABLE_ANVIL=1`): the route returns a deterministic fake CID (sha-256 of the content) and writes the content to `web/.e2e-ipfs/<cid>` (gitignored); `/api/e2e-ipfs/[cid]` serves it, and `useMetadata` tries that path first. Never enabled on a production deployment (`VERCEL_ENV=production`), and E2E mode on any non-local chain throws at config load.
 - Images are resized client-side to max 1600 px (canvas) before upload.
 
 ## Scripts
@@ -225,3 +226,4 @@ Use `anvil --block-time 2` (not instant mining) so time-based behaviour resemble
 27. **`getByRole("button", { name: "Next" })` also matches the Next.js dev-tools button** in `next dev`; use `exact: true`.
 28. **Gated: the door pass gives way to the room chip the moment the check-in lands** (`PresenceSlot` swaps on `isCheckedIn`, which `GetPassPanel` also reads), so the pass panel's own "You're in ✓" view never shows on the contest page. Tests wait for the chain's `voterState` and the room chip instead.
 29. **Anything that labels a contest's phase must use chain time** (`useChainTime().now`), never `useNow()` alone: the explore tabs filter by chain time, so a card on the device clock could sit in "Live" while saying "Taking entries". `ContestCard` had exactly this bug (found by the E2E suite, whose chain runs ahead of the wall clock); `useNow()` is only for device-side timers such as the door pass expiry.
+30. **E2E-only code reads `isE2E`, never `env.NEXT_PUBLIC_E2E`.** `isE2E` (`config/network.ts`) is on only with the local chain and throws at load otherwise. The one exception is `loadAnvilKeys()` in `lib/burner.ts`, which reads both flags literally so the bundler drops the `lib/anvilKeys.ts` chunk from non-E2E builds; never import `anvilKeys.ts` statically from app code (tests may).

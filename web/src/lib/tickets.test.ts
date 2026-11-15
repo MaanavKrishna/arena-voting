@@ -82,6 +82,21 @@ describe("buildTicketTree", () => {
     expect(() => buildTicketTree([])).toThrow();
   });
 
+  it("finds a wallet whatever case the published list used", () => {
+    const lower = StandardMerkleTree.of<string[]>([A, B, C].map((a) => [a.toLowerCase()]), ["address"]);
+    const loaded = loadTicketTree(JSON.parse(JSON.stringify(lower.dump())));
+    const proof = loaded.proofFor(B);
+    expect(proof).not.toBeNull();
+    expect(proof).toEqual(lower.getProof([B.toLowerCase()]));
+    expect(loaded.proofFor(D)).toBeNull();
+  });
+
+  it("loadTicketTree rejects a dump whose hashes don't match its values", () => {
+    const dump = JSON.parse(JSON.stringify(tree.dump)) as { values: { value: string[] }[] };
+    dump.values[0].value = ["0x0000000000000000000000000000000000000001"];
+    expect(() => loadTicketTree(dump)).toThrow();
+  });
+
   it("loadTicketTree throws on garbage", () => {
     expect(() => loadTicketTree({ nope: true })).toThrow();
   });

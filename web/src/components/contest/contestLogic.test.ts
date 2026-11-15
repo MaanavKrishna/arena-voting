@@ -9,6 +9,7 @@ import {
   PRESENCE_ROOM,
   createResultsMemory,
   entryName,
+  forAccount,
   isContestIdParam,
   isContestNotFound,
   isOwnEntry,
@@ -254,5 +255,19 @@ describe("isContestIdParam", () => {
     expect(isContestIdParam("1")).toBe(true);
     expect(isContestIdParam("0042")).toBe(true);
     for (const bad of ["0", "-1", "1.5", "abc", "", "1e3", "0x1", "9".repeat(31)]) expect(isContestIdParam(bad)).toBe(false);
+  });
+});
+
+describe("forAccount (per-wallet page state)", () => {
+  const A = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as Address;
+  const B = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Address;
+
+  it("keeps a value only for the wallet that set it", () => {
+    const voted = { account: A, value: 3 };
+    expect(forAccount(voted, A)).toBe(3);
+    expect(forAccount(voted, A.toLowerCase() as Address)).toBe(3);
+    expect(forAccount(voted, B)).toBeNull();
+    expect(forAccount(voted, undefined)).toBeNull();
+    expect(forAccount(null, A)).toBeNull();
   });
 });

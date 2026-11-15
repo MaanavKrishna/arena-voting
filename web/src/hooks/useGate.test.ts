@@ -276,6 +276,34 @@ describe("gateReducer: queue", () => {
     expect(s.queue[0].attempts).toBe(2);
   });
 
+  it("a failed check-in takes the wallet off the local list, so a rescan isn't refused as already in", () => {
+    let s = accept(initialGate, 0);
+    const k = voter.address.toLowerCase();
+    expect(s.checkedIn[k]).toBe(true);
+    s = gateReducer(s, { type: "tx-sending", id: 1 });
+    s = gateReducer(s, { type: "tx-failed", id: 1, error: "Not enough funds" });
+    expect(s.checkedIn[k]).toBeUndefined();
+    // a fresh scan is admitted again rather than flashing "already in"
+    const again = accept({ ...s, busyUntil: 0, flash: null }, 10_000);
+    expect(again.flash?.kind).toBe("accepted");
+    // a retry puts the wallet back on the list while it's in flight
+    s = gateReducer(s, { type: "retry", id: 1 });
+    expect(s.checkedIn[k]).toBe(true);
+  });
+
+  it("a mined-but-reverted check-in also leaves the local list; another gate's check-in keeps it", () => {
+    let s = accept(initialGate, 0);
+    s = gateReducer(s, { type: "tx-sending", id: 1 });
+    s = gateReducer(s, { type: "tx-sent", id: 1, hash: "0xabc" });
+    s = gateReducer(s, { type: "tx-failed", id: 1, error: "The network turned it down." });
+    expect(s.checkedIn[voter.address.toLowerCase()]).toBeUndefined();
+
+    let t = accept(initialGate, 0);
+    t = gateReducer(t, { type: "tx-sending", id: 1 });
+    t = gateReducer(t, { type: "tx-failed", id: 1, error: "x", alreadyIn: true });
+    expect(t.checkedIn[voter.address.toLowerCase()]).toBe(true);
+  });
+
   it("retry only applies to failed items", () => {
     const s = accept(initialGate, 0);
     expect(gateReducer(s, { type: "retry", id: 1 })).toBe(s);

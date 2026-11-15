@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { byteLength } from "./format";
+import { parseIpfsUri } from "./ipfs";
 
 // Off-chain JSON (docs/contracts.md "Off-chain JSON"). All string limits are UTF-8 bytes.
 
@@ -11,9 +12,11 @@ function bytes(min: number, max: number) {
     });
 }
 
-const ipfsUri = z.string().refine((s) => /^ipfs:\/\/[A-Za-z0-9]{1,128}(\/\S*)?$/.test(s), {
-  message: "must be an ipfs:// URI",
-});
+const ipfsUri = z
+  .string()
+  .refine((s) => /^ipfs:\/\/[A-Za-z0-9]{1,128}(\/\S*)?$/.test(s) && parseIpfsUri(s) !== null, {
+    message: "must be an ipfs:// URI",
+  });
 
 const httpsUrl = bytes(1, 200).refine(
   (s) => {

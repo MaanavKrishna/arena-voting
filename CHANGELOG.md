@@ -2,6 +2,27 @@
 
 All notable changes to Arena are listed here. Versions follow [Semantic Versioning](https://semver.org); the format follows [Keep a Changelog](https://keepachangelog.com).
 
+## [0.1.1] — 2026-11-15
+
+Security and reliability update. No contract changes; the Sepolia deployment is unchanged.
+
+### Security
+- Browser security headers on every page: frame blocking (clickjacking), no MIME sniffing, strict referrer policy, and a permissions policy that allows the microphone and camera only for Arena.
+- Content Security Policy in report-only mode, with violations reported to `/api/csp-report`, ahead of enforcing it.
+- Uploads are only accepted from Arena's own pages, and the hosting firewall rate-limits the upload endpoint (20 requests per minute per IP).
+- Patched vulnerable transitive dependencies (`zod` 4.6.7, `uuid` 11.1.1); `pnpm audit` reports no known vulnerabilities.
+- Test-only code paths are locked to the local test chain, and the public local-chain test keys are no longer in the production bundle.
+- IPFS links with `..` or similar path tricks are rejected; guest lists match addresses regardless of letter case and are validated on load.
+- Repository: secret scanning with push protection, Dependabot alerts and security updates, CodeQL code scanning, private vulnerability reporting, and a `SECURITY.md`.
+
+### Fixed
+- Phones now pick up a new room signal straight away after the organiser rotates the beacon.
+- The Stage catches up after a long quiet period in one go instead of one step per minute.
+- Switching wallets no longer shows the previous wallet's vote.
+- A failed door check-in no longer leaves the guest marked as checked in at the Gate.
+- Contest pages refresh when entries are withdrawn, the guest list or gatekeepers change, or the beacon is reset.
+- History views (My activity, gatekeepers) load faster by reading in parallel.
+
 ## [0.1.0] — 2026-11-15
 
 First public release. Live at **[arena-voting.vercel.app](https://arena-voting.vercel.app)** on the Ethereum Sepolia testnet.
@@ -38,4 +59,5 @@ First public release. Live at **[arena-voting.vercel.app](https://arena-voting.v
 - The organiser is trusted for presence (room signal and door devices), not for tallies or payouts.
 - Votes are public on-chain.
 
+[0.1.1]: https://github.com/MaanavKrishna/arena-voting/releases/tag/v0.1.1
 [0.1.0]: https://github.com/MaanavKrishna/arena-voting/releases/tag/v0.1.0
