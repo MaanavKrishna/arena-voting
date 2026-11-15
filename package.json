@@ -1,0 +1,20 @@
+{
+  "name": "arena",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -C web dev",
+    "build": "pnpm -C web build",
+    "test": "pnpm test:contracts && pnpm test:web",
+    "test:contracts": "cd contracts && forge test",
+    "test:web": "pnpm -C web test",
+    "e2e": "pnpm -C web e2e",
+    "lint": "pnpm -C web lint && cd contracts && forge fmt --check",
+    "typecheck": "pnpm -C web typecheck",
+    "gen": "cd contracts && forge build && cd .. && mkdir -p web/src/deployments && (cp contracts/deployments/*.json web/src/deployments/ 2>/dev/null || true) && pnpm -C web wagmi generate",
+    "chain": "anvil --block-time 2",
+    "deploy:local": "bash contracts/script/deploy-local.sh",
+    "setup:contracts": "bash contracts/script/install-deps.sh"
+  },
+  "engines": { "node": ">=26.7.0 <27" },
+  "packageManager": "pnpm@10.34.9"
+}

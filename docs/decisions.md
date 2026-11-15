@@ -108,3 +108,23 @@ Format: context → decision → alternatives rejected → consequences. Add a n
   5. Fresh deployer key held by the owner (hardware wallet), never in `.env` on a shared machine.
   6. Mainnet RPC + Etherscan verification, separate Vercel environment, copy updated (no "Testnet" badge, real-value warnings on prize funding).
   7. `Seed.s.sol` stays testnet-only.
+
+## D-22 · Use the machine's installed Node 26.7.0 and pnpm 10.34.9
+- **Context (2026-11-15):** No Node version manager or Corepack on the owner's Mac; latest LTS is 26.13.1 and latest pnpm is 12.21.0.
+- **Decision:** Don't change global tools. `.nvmrc` 26.7.0, `engines.node >=26.7.0 <27`, `packageManager pnpm@10.34.9`. Package dependencies stay exactly pinned.
+- **Consequence:** Upgrade later with a version manager if the owner wants; nothing in the app depends on 26.13-specific features.
+
+## D-23 · ESLint 9.39.5, not 10
+- **Context:** eslint-config-next 16.4.6 pulls eslint-plugin-import/react/jsx-a11y whose peer range stops at ESLint 9.
+- **Decision:** Pin the latest ESLint 9.
+
+## D-24 · Tailwind via the Turbopack loader
+- **Context:** create-next-app 16.4.6 configures `@tailwindcss/turbopack` in `next.config.ts` instead of PostCSS.
+- **Decision:** Keep the generated setup (pinned to 4.3.5); no `postcss.config.mjs`. Vitest doesn't process Tailwind.
+
+## D-25 · Base Account behind a flag
+- **Context:** Base Account's Sepolia support couldn't be confirmed from the package alone.
+- **Decision:** `NEXT_PUBLIC_ENABLE_BASE_ACCOUNT=1` shows the Face ID option; off by default. Owner tests on a phone, then flips it.
+
+## D-26 · Solidity libraries are installed, not committed
+- **Decision:** `contracts/lib/` is gitignored; `pnpm setup:contracts` installs forge-std v1.17.0 and OpenZeppelin v5.7.0 at pinned tags.

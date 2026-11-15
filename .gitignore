@@ -25,3 +25,6 @@ test-results/
 contracts/deployments/31337.json
 web/src/deployments/31337.json
 web/.e2e-ipfs/
+
+# solidity deps (installed by pnpm setup:contracts)
+contracts/lib/

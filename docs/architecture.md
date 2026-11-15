@@ -105,8 +105,8 @@ Versions were checked against the npm registry and GitHub releases. **Use exact 
 ### Runtime and tooling
 | Tool | Version | Note |
 |---|---|---|
-| Node.js | 26.13.1 LTS ("Lithium") | `.nvmrc` = `26.13.1`, `engines.node` = `26.13.1`; Next 16 needs ≥ 20.9 |
-| pnpm | 12.21.0 | Pin via `"packageManager": "pnpm@12.21.0"` + `corepack enable`. pnpm ≥ 10 blocks dependency build scripts by default: approve with `pnpm approve-builds` when prompted |
+| Node.js | 26.7.0 (installed; 26.13.1 is latest LTS) | `.nvmrc` = `26.7.0`, `engines.node` = `>=26.7.0 <27` — see D-22 |
+| pnpm | 10.34.9 (installed) | `"packageManager": "pnpm@10.34.9"` (no Corepack on this machine — D-22). Build scripts allowed via `onlyBuiltDependencies` in `pnpm-workspace.yaml` |
 | Foundry (forge/anvil/cast) | v1.9.0 | `foundryup --install v1.9.0` |
 | Solidity | 0.8.38 | `solc = "0.8.38"`, `evm_version = "prague"` |
 | forge-std | v1.17.0 | `forge install foundry-rs/forge-std@v1.17.0` |
@@ -118,7 +118,7 @@ Versions were checked against the npm registry and GitHub releases. **Use exact 
 | next | 16.4.6 | App Router, Turbopack default. Bundled docs in `node_modules/next/dist/docs` — read them, APIs changed vs older training data |
 | react, react-dom | 19.3.1 | |
 | typescript | **6.0.3** (not 7.x) | typescript-eslint 8.72 supports `<6.1.0`; TS 7 breaks linting |
-| tailwindcss, @tailwindcss/postcss | 4.3.5 | CSS-first config (`@theme` in CSS, no `tailwind.config.js`) |
+| tailwindcss, @tailwindcss/turbopack | 4.3.5 | CSS-first config (`@theme` in CSS). Next 16.4 loads Tailwind through a Turbopack loader in `next.config.ts` — no PostCSS config (D-24) |
 | motion | 14.14.0 | motion.dev; import from `motion/react` |
 | wagmi | 3.7.11 | |
 | viem | 2.57.20 | |
@@ -147,7 +147,7 @@ Versions were checked against the npm registry and GitHub releases. **Use exact 
 | jsdom | 31.0.1 |
 | @testing-library/react | 16.3.3 |
 | @playwright/test | 1.65.1 |
-| eslint | 10.15.0 |
+| eslint | 9.39.5 (D-23: eslint-config-next plugins don't support 10 yet) |
 | eslint-config-next | 16.4.6 |
 | typescript-eslint | 8.72.2 |
 | prettier, prettier-plugin-tailwindcss | 3.10.1, 0.8.1 |
