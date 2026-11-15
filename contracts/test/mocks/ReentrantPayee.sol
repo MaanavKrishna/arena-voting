@@ -3,10 +3,11 @@ pragma solidity 0.8.38;
 
 import {Arena} from "../../src/Arena.sol";
 
-/// @notice Payee that tries to re-enter `withdraw` when it receives ETH.
+/// @notice Payee that tries to re-enter `withdraw` (or `withdrawTo`) when it receives ETH.
 contract ReentrantPayee {
     Arena public immutable arena;
     bool public bubble;
+    bool public viaWithdrawTo;
     bool public reentered;
     bool public reentrySucceeded;
     uint256 public received;
@@ -19,8 +20,21 @@ contract ReentrantPayee {
         bubble = b;
     }
 
+    function setViaWithdrawTo(bool b) external {
+        viaWithdrawTo = b;
+    }
+
     function claim() external {
         arena.withdraw();
+    }
+
+    function claimTo(address payable to) external {
+        arena.withdrawTo(to);
+    }
+
+    function _reenter() internal {
+        if (viaWithdrawTo) arena.withdrawTo(payable(address(this)));
+        else arena.withdraw();
     }
 
     receive() external payable {
@@ -28,11 +42,16 @@ contract ReentrantPayee {
         if (reentered) return;
         reentered = true;
         if (bubble) {
-            arena.withdraw();
+            _reenter();
         } else {
-            try arena.withdraw() {
+            try this.reenterExternal() {
                 reentrySucceeded = true;
             } catch {}
         }
+    }
+
+    function reenterExternal() external {
+        require(msg.sender == address(this), "self only");
+        _reenter();
     }
 }

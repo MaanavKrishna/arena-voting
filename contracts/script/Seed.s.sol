@@ -3,7 +3,6 @@ pragma solidity 0.8.38;
 
 import {Script} from "forge-std/Script.sol";
 import {Arena, CreateParams, Presence} from "../src/Arena.sol";
-import {Deploy} from "./Deploy.s.sol";
 
 /// @notice Creates three demo contests (Anywhere, Room, Gated) on the deployed Arena.
 /// @dev Reads the Arena address from deployments/<chainId>.json. Local Anvil runs broadcast from the
@@ -19,8 +18,14 @@ contract Seed is Script {
     address internal constant PAYEE_8 = 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f;
     address internal constant PAYEE_9 = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
 
+    /// @notice Chains demo data may be seeded on: Sepolia and local Anvil, hard-coded on purpose.
+    /// @dev Independent of Deploy.ALLOWED_CHAINS, so adding a chain to deploys never enables seeding it.
+    function isSeedChain(uint256 chainId) public pure returns (bool) {
+        return chainId == 11155111 || chainId == 31337;
+    }
+
     function run() external {
-        require(new Deploy().isAllowedChain(block.chainid), "testnet only");
+        require(isSeedChain(block.chainid), "testnet only");
 
         string memory path =
             string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");

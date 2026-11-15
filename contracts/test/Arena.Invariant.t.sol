@@ -14,7 +14,7 @@ contract ArenaInvariantTest is Test {
         arena = new Arena();
         handler = new ArenaHandler(arena);
 
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = ArenaHandler.create.selector;
         selectors[1] = ArenaHandler.submit.selector;
         selectors[2] = ArenaHandler.vote.selector;
@@ -22,6 +22,8 @@ contract ArenaInvariantTest is Test {
         selectors[4] = ArenaHandler.finalize.selector;
         selectors[5] = ArenaHandler.withdraw.selector;
         selectors[6] = ArenaHandler.warp.selector;
+        selectors[7] = ArenaHandler.remove.selector;
+        selectors[8] = ArenaHandler.withdrawTo.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
@@ -95,5 +97,7 @@ contract ArenaInvariantTest is Test {
         console.log("checkIns", handler.ghostCheckInCalls());
         console.log("finalized", handler.ghostFinalizeCalls());
         console.log("withdrawals", handler.ghostWithdrawCalls());
+        console.log("submits", handler.ghostSubmitCalls());
+        console.log("removals", handler.ghostRemoveCalls());
     }
 }

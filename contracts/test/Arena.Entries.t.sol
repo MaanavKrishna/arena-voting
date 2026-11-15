@@ -83,14 +83,173 @@ contract ArenaEntriesTest is ArenaBase {
         arena.submitEntry(id, _payee(65), "ipfs://entry", new address[](0));
     }
 
-    function test_submit_removedEntriesCountTowardsLimit() public {
+    function test_submit_removingEntryFreesLiveSlot() public {
         uint256 id = _createContest(Presence.Anywhere);
         _addEntries(id, 64);
         vm.prank(organiser);
         arena.removeEntry(id, 1);
+        assertEq(_submit(id, organiser, _payee(65)), 65);
+        ContestView memory c = arena.getContest(id);
+        assertEq(c.entryCount, 65);
+        assertEq(c.liveEntryCount, 64);
         vm.prank(organiser);
         vm.expectRevert(Arena.TooManyEntries.selector);
-        arena.submitEntry(id, _payee(65), "ipfs://entry", new address[](0));
+        arena.submitEntry(id, _payee(66), "ipfs://entry", new address[](0));
+    }
+
+    /// @dev 64 live, remove all, 64 more: 128 pushed. With a live slot free, the total cap still holds.
+    function test_submit_totalCap128() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        _addEntries(id, 64);
+        vm.startPrank(organiser);
+        for (uint32 i = 1; i <= 64; ++i) {
+            arena.removeEntry(id, i);
+        }
+        for (uint256 i = 65; i <= 128; ++i) {
+            arena.submitEntry(id, _payee(i), "ipfs://entry", new address[](0));
+        }
+        arena.removeEntry(id, 128);
+        ContestView memory c = arena.getContest(id);
+        assertEq(c.entryCount, 128);
+        assertEq(c.liveEntryCount, 63);
+        vm.expectRevert(Arena.TooManyEntries.selector);
+        arena.submitEntry(id, _payee(129), "ipfs://entry", new address[](0));
+        vm.stopPrank();
+        assertEq(arena.MAX_TOTAL_ENTRIES(), 128);
+    }
+
+    function test_getEntries_128Pushed() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        _addEntries(id, 64);
+        vm.startPrank(organiser);
+        for (uint32 i = 1; i <= 64; ++i) {
+            arena.removeEntry(id, i);
+        }
+        for (uint256 i = 65; i <= 128; ++i) {
+            arena.submitEntry(id, _payee(i), "ipfs://entry", new address[](0));
+        }
+        vm.stopPrank();
+        EntryView[] memory es = arena.getEntries(id);
+        assertEq(es.length, 128);
+        assertTrue(es[63].removed);
+        assertFalse(es[64].removed);
+        assertEq(es[127].id, 128);
+        assertEq(es[127].payee, _payee(128));
+    }
+
+    // ------------------------------------------------- per-submitter limit
+
+    function test_submit_strangerThreeOkFourthReverts() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(id, stranger, _payee(i));
+        }
+        assertEq(arena.entriesSubmitted(id, stranger), 3);
+        assertEq(arena.MAX_ENTRIES_PER_SUBMITTER(), 3);
+        vm.prank(stranger);
+        vm.expectRevert(Arena.TooManyEntriesFromSubmitter.selector);
+        arena.submitEntry(id, _payee(4), "ipfs://entry", new address[](0));
+    }
+
+    function test_submit_organiserExemptFromSubmitterLimit() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        _addEntries(id, 10);
+        assertEq(arena.getContest(id).entryCount, 10);
+        assertEq(arena.entriesSubmitted(id, organiser), 0);
+    }
+
+    function test_submit_separateSubmittersEachGetThree() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(id, stranger, _payee(i));
+            _submit(id, voter1, _payee(10 + i));
+        }
+        _submit(id, voter2, _payee(20));
+        assertEq(arena.getContest(id).entryCount, 7);
+        vm.prank(voter1);
+        vm.expectRevert(Arena.TooManyEntriesFromSubmitter.selector);
+        arena.submitEntry(id, _payee(30), "ipfs://entry", new address[](0));
+    }
+
+    function test_submit_submitterLimitIsPerContest() public {
+        uint256 a = _createContest(Presence.Anywhere);
+        uint256 b = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(a, stranger, _payee(i));
+            _submit(b, stranger, _payee(i));
+        }
+        assertEq(arena.entriesSubmitted(a, stranger), 3);
+        assertEq(arena.entriesSubmitted(b, stranger), 3);
+    }
+
+    /// @dev Removing junk must not hand the griefer their quota back.
+    function test_submit_removalDoesNotRestoreSubmitterQuota() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(id, stranger, _payee(i));
+        }
+        vm.prank(organiser);
+        arena.removeEntry(id, 1);
+        vm.prank(stranger);
+        vm.expectRevert(Arena.TooManyEntriesFromSubmitter.selector);
+        arena.submitEntry(id, _payee(4), "ipfs://entry", new address[](0));
+    }
+
+    /// @dev Griefers fill all 64 live slots; the organiser removes them and a real team gets in.
+    function test_submit_griefedContestRecoversAfterRemoval() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i; i < 64; ++i) {
+            _submit(id, address(uint160(0xBAD000 + i / 3)), _payee(i + 1));
+        }
+        vm.prank(voter1);
+        vm.expectRevert(Arena.TooManyEntries.selector);
+        arena.submitEntry(id, _payee(100), "ipfs://real", new address[](0));
+
+        vm.startPrank(organiser);
+        for (uint32 i = 1; i <= 64; ++i) {
+            arena.removeEntry(id, i);
+        }
+        vm.stopPrank();
+        assertEq(_submit(id, voter1, _payee(100)), 65);
+    }
+
+    function test_order_tooManyEntriesBeatsSubmitterLimit() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(id, stranger, _payee(i));
+        }
+        _addEntries(id, 61);
+        vm.prank(stranger);
+        vm.expectRevert(Arena.TooManyEntries.selector);
+        arena.submitEntry(id, _payee(99), "ipfs://entry", new address[](0));
+    }
+
+    function test_order_submitterLimitBeatsInvalidPayee() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        for (uint256 i = 1; i <= 3; ++i) {
+            _submit(id, stranger, _payee(i));
+        }
+        vm.prank(stranger);
+        vm.expectRevert(Arena.TooManyEntriesFromSubmitter.selector);
+        arena.submitEntry(id, address(0), "", new address[](0));
+    }
+
+    // ------------------------------------------------ payee / member != Arena
+
+    function test_submit_arenaAsPayeeReverts() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        vm.prank(stranger);
+        vm.expectRevert(Arena.InvalidPayee.selector);
+        arena.submitEntry(id, address(arena), "ipfs://entry", new address[](0));
+    }
+
+    function test_submit_arenaAsMemberReverts() public {
+        uint256 id = _createContest(Presence.Anywhere);
+        address[] memory m = _members(3);
+        m[1] = address(arena);
+        vm.prank(stranger);
+        vm.expectRevert(Arena.InvalidMember.selector);
+        arena.submitEntry(id, _payee(1), "ipfs://entry", m);
     }
 
     function test_submit_8MembersOk9Reverts() public {

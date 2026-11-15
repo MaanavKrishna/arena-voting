@@ -83,7 +83,12 @@ contract Arena is ReentrancyGuard {
 
     uint256 public constant MAX_TITLE_BYTES = 80;
     uint256 public constant MAX_URI_BYTES = 200;
+    /// @notice Live (non-removed) entries per contest.
     uint256 public constant MAX_ENTRIES = 64;
+    /// @notice Entries ever pushed per contest, removed ones included. Bounds the finalize loop.
+    uint256 public constant MAX_TOTAL_ENTRIES = 128;
+    /// @notice Entries one non-organiser may submit to an open contest (removals don't refund it).
+    uint256 public constant MAX_ENTRIES_PER_SUBMITTER = 3;
     uint256 public constant MAX_MEMBERS = 8;
     uint64 public constant MIN_VOTING_DURATION = 5 minutes;
     uint64 public constant MAX_VOTING_DURATION = 7 days;
@@ -143,6 +148,8 @@ contract Arena is ReentrancyGuard {
     mapping(uint256 => mapping(address => bool)) public isGatekeeper;
     /// @notice ETH an account can withdraw (prizes, refunds, deferred drips).
     mapping(address => uint256) public claimable;
+    /// @notice Entries a non-organiser has submitted to a contest (never decremented; organiser not counted).
+    mapping(uint256 => mapping(address => uint32)) public entriesSubmitted;
 
     // ----------------------------------------------------------------- events
 
@@ -189,6 +196,7 @@ contract Arena is ReentrancyGuard {
     error TooManyMembers();
     error InvalidMember();
     error TooManyEntries();
+    error TooManyEntriesFromSubmitter();
     error VotingAlreadyStarted();
     error CheckInsStarted();
     error EntryNotFound();
@@ -293,7 +301,8 @@ contract Arena is ReentrancyGuard {
         if (p.ticketRoot != bytes32(0)) emit TicketListSet(contestId, p.ticketRoot, p.ticketListURI);
     }
 
-    /// @notice Adds an entry. Open contests accept anyone; curated ones only the organiser.
+    /// @notice Adds an entry. Open contests accept anyone (at most 3 per non-organiser); curated ones
+    ///         only the organiser. At most 64 live entries and 128 ever pushed per contest.
     /// @param contestId the contest
     /// @param payee receives the prize share if this entry wins (also banned from voting for it)
     /// @param metadataURI ipfs:// URI of the EntryMetadata JSON (1..200 bytes)
@@ -308,20 +317,25 @@ contract Arena is ReentrancyGuard {
         Contest storage c = _contest(contestId);
         if (block.timestamp >= c.submissionEnd) revert SubmissionsClosed();
         if (!c.openSubmissions && msg.sender != c.organiser) revert NotOrganiser();
-        if (c.entryCount >= MAX_ENTRIES) revert TooManyEntries();
-        if (payee == address(0)) revert InvalidPayee();
+        if (c.liveEntryCount >= MAX_ENTRIES || c.entryCount >= MAX_TOTAL_ENTRIES) revert TooManyEntries();
+        bool counted = msg.sender != c.organiser;
+        if (counted && entriesSubmitted[contestId][msg.sender] >= MAX_ENTRIES_PER_SUBMITTER) {
+            revert TooManyEntriesFromSubmitter();
+        }
+        if (payee == address(0) || payee == address(this)) revert InvalidPayee();
         uint256 uriLen = bytes(metadataURI).length;
         if (uriLen == 0 || uriLen > MAX_URI_BYTES) revert InvalidURI();
         uint256 n = members.length;
         if (n > MAX_MEMBERS) revert TooManyMembers();
         for (uint256 i; i < n; ++i) {
             address m = members[i];
-            if (m == address(0) || m == payee) revert InvalidMember();
+            if (m == address(0) || m == payee || m == address(this)) revert InvalidMember();
             for (uint256 j; j < i; ++j) {
                 if (members[j] == m) revert InvalidMember();
             }
         }
 
+        if (counted) ++entriesSubmitted[contestId][msg.sender];
         entryId = ++c.entryCount;
         ++c.liveEntryCount;
         Entry storage e = _entries[contestId].push();
@@ -333,7 +347,8 @@ contract Arena is ReentrancyGuard {
         emit EntrySubmitted(contestId, entryId, payee, msg.sender, metadataURI);
     }
 
-    /// @notice Removes an entry before voting starts. Removed entries still count towards the limit.
+    /// @notice Removes an entry before voting starts. Frees a live slot; the entry still counts
+    ///         towards MAX_TOTAL_ENTRIES and its submitter's quota.
     /// @param contestId the contest
     /// @param entryId the entry to remove
     function removeEntry(uint256 contestId, uint32 entryId) external {
@@ -576,10 +591,24 @@ contract Arena is ReentrancyGuard {
 
     /// @notice Sends the caller everything they can claim (prizes, refunds, deferred drips).
     function withdraw() external nonReentrant {
+        _withdraw(payable(msg.sender));
+    }
+
+    /// @notice Sends everything the caller can claim to `to`, for payee contracts that can make
+    ///         calls but can't receive ETH.
+    /// @param to recipient of the caller's claimable balance (not zero)
+    function withdrawTo(address payable to) external nonReentrant {
+        if (to == address(0)) revert InvalidPayee();
+        _withdraw(to);
+    }
+
+    function _withdraw(address payable to) internal {
         uint256 amount = claimable[msg.sender];
         if (amount == 0) revert NothingToClaim();
         claimable[msg.sender] = 0;
-        (bool ok,) = payable(msg.sender).call{value: amount}("");
+        // the caller only ever spends their own balance, so any destination is theirs to pick
+        // forge-lint: disable-next-line(arbitrary-send-eth)
+        (bool ok,) = to.call{value: amount}("");
         if (!ok) revert TransferFailed();
         emit Withdrawn(msg.sender, amount);
     }

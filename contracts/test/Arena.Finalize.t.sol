@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.38;
 
+import {console} from "forge-std/Test.sol";
 import {ArenaBase} from "./ArenaBase.t.sol";
 import {Arena, Presence, CreateParams} from "../src/Arena.sol";
 import {ReentrantPayee} from "./mocks/ReentrantPayee.sol";
@@ -215,6 +216,186 @@ contract ArenaFinalizeTest is ArenaBase {
         vm.expectRevert(Arena.TransferFailed.selector);
         attacker.claim();
         assertEq(arena.claimable(address(attacker)), 2 * PRIZE);
+    }
+
+    // ------------------------------------------------------------- withdrawTo
+
+    function test_withdrawTo_sendsToRecipientAndEmits() public {
+        uint256 cid = _createContest(Presence.Anywhere);
+        _addEntries(cid, 1);
+        _warpToVoting(cid);
+        _votes(cid, 1, 1, 1);
+        _warpToEnd(cid);
+        arena.finalize(cid);
+
+        address payee = _payee(1);
+        address payable to = payable(makeAddr("treasury"));
+        uint256 payeeBefore = payee.balance;
+        vm.expectEmit(true, false, false, true, address(arena));
+        emit Withdrawn(payee, PRIZE);
+        vm.prank(payee);
+        arena.withdrawTo(to);
+        assertEq(to.balance, PRIZE);
+        assertEq(payee.balance, payeeBefore);
+        assertEq(arena.claimable(payee), 0);
+        assertEq(address(arena).balance, 0);
+
+        vm.prank(payee);
+        vm.expectRevert(Arena.NothingToClaim.selector);
+        arena.withdrawTo(to);
+    }
+
+    function test_withdrawTo_zeroAddressReverts() public {
+        uint256 cid = _createContest(Presence.Anywhere);
+        _addEntries(cid, 1);
+        _warpToVoting(cid);
+        _votes(cid, 1, 1, 1);
+        _warpToEnd(cid);
+        arena.finalize(cid);
+        vm.prank(_payee(1));
+        vm.expectRevert(Arena.InvalidPayee.selector);
+        arena.withdrawTo(payable(address(0)));
+        assertEq(arena.claimable(_payee(1)), PRIZE);
+    }
+
+    function test_withdrawTo_nothingToClaimReverts() public {
+        vm.prank(stranger);
+        vm.expectRevert(Arena.NothingToClaim.selector);
+        arena.withdrawTo(payable(voter1));
+    }
+
+    function test_order_withdrawTo_zeroAddressBeatsNothingToClaim() public {
+        vm.prank(stranger);
+        vm.expectRevert(Arena.InvalidPayee.selector);
+        arena.withdrawTo(payable(address(0)));
+    }
+
+    /// @dev The case withdrawTo exists for: a payee contract that can call but not receive.
+    function test_withdrawTo_rejectingPayeeRoutesFunds() public {
+        RejectingReceiver r = new RejectingReceiver();
+        uint256 cid = _createContest(Presence.Anywhere);
+        _submit(cid, organiser, address(r));
+        _warpToVoting(cid);
+        _votes(cid, 1, 1, 1);
+        _warpToEnd(cid);
+        arena.finalize(cid);
+
+        vm.expectRevert(Arena.TransferFailed.selector);
+        r.claim(arena);
+
+        address payable to = payable(makeAddr("rescue"));
+        vm.expectEmit(true, false, false, true, address(arena));
+        emit Withdrawn(address(r), PRIZE);
+        r.claimTo(arena, to);
+        assertEq(to.balance, PRIZE);
+        assertEq(arena.claimable(address(r)), 0);
+    }
+
+    function test_withdrawTo_rejectingRecipientRevertsTransferFailed() public {
+        RejectingReceiver sink = new RejectingReceiver();
+        uint256 cid = _createContest(Presence.Anywhere);
+        _addEntries(cid, 1);
+        _warpToVoting(cid);
+        _votes(cid, 1, 1, 1);
+        _warpToEnd(cid);
+        arena.finalize(cid);
+        vm.prank(_payee(1));
+        vm.expectRevert(Arena.TransferFailed.selector);
+        arena.withdrawTo(payable(address(sink)));
+        assertEq(arena.claimable(_payee(1)), PRIZE);
+    }
+
+    function test_withdrawTo_reentrancyAttemptFails() public {
+        ReentrantPayee attacker = _reentrantWinner();
+        attacker.setViaWithdrawTo(true);
+        uint256 owed = arena.claimable(address(attacker));
+        attacker.claimTo(payable(address(attacker)));
+        assertTrue(attacker.reentered());
+        assertFalse(attacker.reentrySucceeded());
+        assertEq(attacker.received(), owed);
+        assertEq(arena.claimable(address(attacker)), 0);
+        assertEq(address(arena).balance, PRIZE);
+    }
+
+    function test_withdrawTo_reentrancyBubblingRevertsTransferFailed() public {
+        ReentrantPayee attacker = _reentrantWinner();
+        attacker.setViaWithdrawTo(true);
+        attacker.setBubble(true);
+        vm.expectRevert(Arena.TransferFailed.selector);
+        attacker.claimTo(payable(address(attacker)));
+        assertEq(arena.claimable(address(attacker)), 2 * PRIZE);
+    }
+
+    /// @dev withdraw re-entered from a withdrawTo payout (cross-function) is blocked too.
+    function test_withdrawTo_crossFunctionReentrancyFails() public {
+        ReentrantPayee attacker = _reentrantWinner();
+        uint256 owed = arena.claimable(address(attacker));
+        attacker.claimTo(payable(address(attacker)));
+        assertTrue(attacker.reentered());
+        assertFalse(attacker.reentrySucceeded());
+        assertEq(attacker.received(), owed);
+        assertEq(address(arena).balance, PRIZE);
+    }
+
+    // ------------------------------------------------------- 128-entry bound
+
+    /// @dev Worst case for the finalize loop: 128 pushed entries (64 removed) and a 64-way tie.
+    function test_gas_finalize128EntriesTie() public {
+        uint256 cid = _createContest(Presence.Anywhere);
+        _addEntries(cid, 64);
+        vm.startPrank(organiser);
+        for (uint32 i = 1; i <= 64; ++i) {
+            arena.removeEntry(cid, i);
+        }
+        for (uint256 i = 65; i <= 128; ++i) {
+            arena.submitEntry(cid, _payee(i), "ipfs://entry", new address[](0));
+        }
+        vm.stopPrank();
+        _warpToVoting(cid);
+        for (uint32 i = 65; i <= 128; ++i) {
+            _vote(cid, address(uint160(0x4000000 + i)), i);
+        }
+        _warpToEnd(cid);
+
+        uint256 g = gasleft();
+        arena.finalize(cid);
+        g -= gasleft();
+        console.log("finalize, 128 entries, 64-way tie, gas:", g);
+        assertLt(g, 3_000_000);
+
+        uint256 share = PRIZE / 64;
+        for (uint256 i = 1; i <= 64; ++i) {
+            assertEq(arena.claimable(_payee(i)), 0);
+        }
+        for (uint256 i = 65; i <= 128; ++i) {
+            assertEq(arena.claimable(_payee(i)), share);
+        }
+        assertEq(arena.claimable(organiser), PRIZE - share * 64);
+    }
+
+    /// @dev Typical case at the bound: 128 pushed entries, one winner (the last one).
+    function test_gas_finalize128EntriesSingleWinner() public {
+        uint256 cid = _createContest(Presence.Anywhere);
+        _addEntries(cid, 64);
+        vm.startPrank(organiser);
+        for (uint32 i = 1; i <= 64; ++i) {
+            arena.removeEntry(cid, i);
+        }
+        for (uint256 i = 65; i <= 128; ++i) {
+            arena.submitEntry(cid, _payee(i), "ipfs://entry", new address[](0));
+        }
+        vm.stopPrank();
+        _warpToVoting(cid);
+        _votes(cid, 128, 2, 5);
+        _votes(cid, 100, 1, 6);
+        _warpToEnd(cid);
+
+        uint256 g = gasleft();
+        arena.finalize(cid);
+        g -= gasleft();
+        console.log("finalize, 128 entries, single winner, gas:", g);
+        assertLt(g, 1_000_000);
+        assertEq(arena.claimable(_payee(128)), PRIZE);
     }
 
     // ------------------------------------------------------------------ fuzz

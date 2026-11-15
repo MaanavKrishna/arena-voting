@@ -5,13 +5,15 @@ One contract, `contracts/src/Arena.sol`, plus a library `contracts/src/lib/Beaco
 > This document is normative: names, types, limits, check order and error names here are the interface the frontend and tests are written against. If implementation forces a change, update this file in the same commit and add a `decisions.md` entry.
 
 ## Network
-Current phase: deployed **only** to Ethereum Sepolia testnet (`11155111`) and local Anvil (`31337`). The contract itself is network-agnostic. `Deploy.s.sol` and `Seed.s.sol` check `block.chainid` against an allow-list constant `ALLOWED_CHAINS = [11155111, 31337]` and revert otherwise; `test/Deploy.t.sol` asserts it reverts on chain id 1. Adding mainnet later = owner decision + D-21 checklist + adding `1` to that list (never `Seed.s.sol` — demo data stays testnet-only).
+Current phase: deployed **only** to Ethereum Sepolia testnet (`11155111`) and local Anvil (`31337`). The contract itself is network-agnostic. `Deploy.s.sol` checks `block.chainid` against an allow-list constant `ALLOWED_CHAINS = [11155111, 31337]` and reverts otherwise; `test/Deploy.t.sol` asserts it reverts on chain id 1. `Seed.s.sol` has its **own** hard-coded guard, `isSeedChain(id) = id == 11155111 || id == 31337`, independent of Deploy's list (D-29); `SeedVotes.s.sol` accepts only `31337`. `test/Seed.t.sol` asserts Seed reverts on chain id 1 even when Deploy is mocked to allow it. Adding mainnet later = owner decision + D-21 checklist + adding `1` to `ALLOWED_CHAINS` only — demo data stays testnet-only.
 
 ## Constants
 ```solidity
 uint256 constant MAX_TITLE_BYTES        = 80;
 uint256 constant MAX_URI_BYTES          = 200;
-uint256 constant MAX_ENTRIES            = 64;      // per contest, includes removed
+uint256 constant MAX_ENTRIES            = 64;      // LIVE (non-removed) entries per contest
+uint256 constant MAX_TOTAL_ENTRIES      = 128;     // entries ever pushed per contest, removed included (bounds finalize)
+uint256 constant MAX_ENTRIES_PER_SUBMITTER = 3;    // per non-organiser per open contest; removals don't refund it
 uint256 constant MAX_MEMBERS            = 8;       // per entry
 uint64  constant MIN_VOTING_DURATION    = 5 minutes;
 uint64  constant MAX_VOTING_DURATION    = 7 days;
@@ -78,6 +80,7 @@ mapping(uint256 => mapping(address => uint32)) public votedEntry;   // 0 = not v
 mapping(uint256 => mapping(address => bool))   public checkedIn;
 mapping(uint256 => mapping(address => bool))   public isGatekeeper;
 mapping(address => uint256)                    public claimable;
+mapping(uint256 => mapping(address => uint32)) public entriesSubmitted; // non-organiser submissions; never decremented
 ```
 Pack `Contest` so the hot fields used by `vote()` (`votingStart`, `votingEnd`, `presence`, `finalized`, `ticketRoot`) sit in as few slots as practical.
 
@@ -102,11 +105,13 @@ A voter **cannot** vote for an entry if they are its `payee`, one of its `member
 Emits `ContestCreated(contestId, organiser, presence, prize, votingStart, votingEnd)`; if a ticket list is set, also `TicketListSet(contestId, ticketRoot, ticketListURI)`.
 
 ### `submitEntry(uint256 contestId, address payee, string calldata metadataURI, address[] calldata members) external returns (uint32 entryId)`
-Checks: 1 `ContestNotFound` · 2 `SubmissionsClosed` (`now >= submissionEnd`) · 3 `NotOrganiser` (curated and caller ≠ organiser) · 4 `TooManyEntries` (already 64) · 5 `InvalidPayee` (zero) · 6 `InvalidURI` (empty or > 200) · 7 `TooManyMembers` (> 8) · 8 `InvalidMember` (zero, equals payee, or duplicate).
-Stores `submitter = msg.sender`. Emits `EntrySubmitted(contestId, entryId, payee, msg.sender, metadataURI)`.
+Checks: 1 `ContestNotFound` · 2 `SubmissionsClosed` (`now >= submissionEnd`) · 3 `NotOrganiser` (curated and caller ≠ organiser) · 4 `TooManyEntries` (`liveEntryCount >= 64` or `entryCount >= 128`) · 5 `TooManyEntriesFromSubmitter` (caller ≠ organiser and `entriesSubmitted[contestId][caller] >= 3`) · 6 `InvalidPayee` (zero, or the Arena contract itself) · 7 `InvalidURI` (empty or > 200) · 8 `TooManyMembers` (> 8) · 9 `InvalidMember` (zero, equals payee, the Arena contract itself, or duplicate).
+Stores `submitter = msg.sender`; if the caller isn't the organiser, `entriesSubmitted[contestId][caller]++` (the organiser is exempt and not counted). Emits `EntrySubmitted(contestId, entryId, payee, msg.sender, metadataURI)`.
+Why the caps (D-29): anyone can submit to an open contest, so the live cap alone would let one wallet fill it with junk. The per-submitter quota raises the cost of that, removing junk frees live slots (the organiser can always clean up before voting), and the total cap keeps `finalize` and `getEntries` bounded at 128 iterations however much removing happens. Removing an entry does **not** refund its submitter's quota.
 
 ### `removeEntry(uint256 contestId, uint32 entryId) external`
 Checks: 1 `ContestNotFound` · 2 `NotOrganiser` · 3 `VotingAlreadyStarted` (`now >= votingStart`) · 4 `EntryNotFound` · 5 `EntryRemoved`.
+Effects: `removed = true`, `liveEntryCount--` (frees a live slot; `entryCount` and the submitter's quota are unchanged).
 Emits `EntryWithdrawn(contestId, entryId)` (named so it doesn't clash with the `EntryRemoved` error).
 
 ### `setTicketList(uint256 contestId, bytes32 root, string calldata uri) external`
@@ -159,7 +164,10 @@ Anyone. Checks: 1 `ContestNotFound` · 2 `VotingNotEnded` (`now < votingEnd`) ·
 
 ### `withdraw() external nonReentrant`
 Sends `claimable[msg.sender]` (zeroed first). Reverts `NothingToClaim` if 0, `TransferFailed` if the call fails. Emits `Withdrawn(account, amount)`.
-Known limit: a deferred drip owed to a contract that can't receive ETH stays stuck (documented, tiny amounts).
+
+### `withdrawTo(address payable to) external nonReentrant`
+Same as `withdraw`, but sends the caller's balance to `to`. For payee contracts (multisigs, team contracts) that can make calls but can't receive ETH. Checks: 1 `InvalidPayee` (`to == 0`) · 2 `NothingToClaim` · then `TransferFailed` if the call to `to` fails (balance restored by the revert). Emits `Withdrawn(msg.sender, amount)` — the account debited, not the recipient.
+Known limit: a balance owed to a contract that can neither receive ETH nor call `withdrawTo` stays stuck. Payees and members can't be the Arena contract itself (`InvalidPayee` / `InvalidMember`), since it could never withdraw.
 
 ### Views
 ```solidity
@@ -171,7 +179,7 @@ function beaconStatus(uint256 contestId, BeaconToken calldata t) external view r
 function isBeaconTokenValid(uint256 contestId, BeaconToken calldata t) external view returns (bool);   // beaconStatus == Ok
 function computeNextLink(bytes16 link) external pure returns (bytes16);                       // parity helper
 ```
-`getEntries`, `voterState`, `beaconStatus` and `isBeaconTokenValid` revert `ContestNotFound` for unknown ids; the auto-generated getters (`votedEntry`, `checkedIn`, `isGatekeeper`, `claimable`) don't. Limits are `public constant` (ABI getters). `Deploy.s.sol` exposes `ALLOWED_CHAINS()` as a pure function and honours an optional `ARENA_DEPLOYMENT_FILE` env var (tests use it so they never touch real deployment files).
+`getEntries`, `voterState`, `beaconStatus` and `isBeaconTokenValid` revert `ContestNotFound` for unknown ids; the auto-generated getters (`votedEntry`, `checkedIn`, `isGatekeeper`, `claimable`, `entriesSubmitted`) don't. Limits are `public constant` (ABI getters). `Deploy.s.sol` exposes `ALLOWED_CHAINS()` as a pure function and honours an optional `ARENA_DEPLOYMENT_FILE` env var (tests use it so they never touch real deployment files).
 
 ## Events (indexed fields marked)
 ```solidity
@@ -190,7 +198,7 @@ event Withdrawn(address indexed account, uint256 amount);
 ```
 
 ## Errors (complete list, no parameters)
-`ContestNotFound, InvalidTitle, InvalidURI, InvalidTimeline, InvalidVotingDuration, TicketListMismatch, InvalidDrip, SubmissionsClosed, NotOrganiser, InvalidPayee, TooManyMembers, InvalidMember, TooManyEntries, VotingAlreadyStarted, CheckInsStarted, EntryNotFound, EntryRemoved, PresenceNotRequired, PresenceNotGated, VotingEnded, InvalidBeacon, InvalidGatekeeper, NotGatekeeper, AlreadyCheckedIn, NotOnTicketList, InvalidVoter, VotingNotOpen, AlreadyVoted, CannotVoteForOwnEntry, NotCheckedIn, BeaconNotSet, BeaconSlotOutOfRange, BeaconExpired, BeaconGapTooLarge, InvalidBeaconToken, VotingNotEnded, AlreadyFinalized, NothingToClaim, TransferFailed`
+`ContestNotFound, InvalidTitle, InvalidURI, InvalidTimeline, InvalidVotingDuration, TicketListMismatch, InvalidDrip, SubmissionsClosed, NotOrganiser, InvalidPayee, TooManyMembers, InvalidMember, TooManyEntries, TooManyEntriesFromSubmitter, VotingAlreadyStarted, CheckInsStarted, EntryNotFound, EntryRemoved, PresenceNotRequired, PresenceNotGated, VotingEnded, InvalidBeacon, InvalidGatekeeper, NotGatekeeper, AlreadyCheckedIn, NotOnTicketList, InvalidVoter, VotingNotOpen, AlreadyVoted, CannotVoteForOwnEntry, NotCheckedIn, BeaconNotSet, BeaconSlotOutOfRange, BeaconExpired, BeaconGapTooLarge, InvalidBeaconToken, VotingNotEnded, AlreadyFinalized, NothingToClaim, TransferFailed`
 
 The frontend maps every one to plain-English copy in `web/src/lib/errors.ts` ([frontend.md](frontend.md#error-copy)); a test fails if any ABI error lacks copy.
 
@@ -238,9 +246,10 @@ Gate rules: wallet signature valid for `voter` (`verifyTypedData`); `issuedAt` w
 Parity fixtures pin `chainId = 31337` and `verifyingContract = 0x5FbDB2315678afecb367f032d93F642f64180aa3` (first Anvil deployment address).
 
 ## Security checklist
-- Checks-effects-interactions everywhere; `nonReentrant` on `checkIn` and `withdraw`.
+- Checks-effects-interactions everywhere; `nonReentrant` on `checkIn`, `withdraw` and `withdrawTo` (one shared lock, so cross-function re-entry fails too).
 - Pull payments for prizes; capped-gas push with fallback-to-claimable for drips.
-- No unbounded loops over user data: entries ≤ 64, members ≤ 8, hash steps ≤ 4096.
+- No unbounded loops over user data: entries ≤ 64 live and ≤ 128 ever pushed, members ≤ 8, hash steps ≤ 4096. Measured `finalize` at the bound (128 pushed, 64 removed): 64-way tie ≈ 1.90M gas, single winner ≈ 450k.
+- Open-submission griefing: ≤ 3 entries per non-organiser wallet; the organiser can remove junk before voting to free live slots (D-29).
 - Self-vote ban covers payee, members and (non-organiser) submitter.
 - Ticket list frozen once voting starts or the first check-in happens.
 - Organiser cannot change the timeline, remove entries or change the ticket list after voting starts. Organiser **can** rotate the beacon and add/revoke gatekeepers during voting — documented trust (presence only).

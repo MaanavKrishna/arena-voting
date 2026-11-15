@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Arena, Presence, CreateParams, BeaconToken, ContestView, EntryView} from "../../src/Arena.sol";
 import {RejectingReceiver} from "../mocks/RejectingReceiver.sol";
 
-/// @notice Drives Arena through random create/submit/vote/checkIn/finalize/withdraw sequences.
+/// @notice Drives Arena through random create/submit/remove/vote/checkIn/finalize/withdraw(To) sequences.
 contract ArenaHandler is Test {
     Arena public immutable arena;
 
@@ -19,6 +19,8 @@ contract ArenaHandler is Test {
     uint256 public ghostVoteCalls;
     uint256 public ghostCheckInCalls;
     uint256 public ghostWithdrawCalls;
+    uint256 public ghostRemoveCalls;
+    uint256 public ghostSubmitCalls;
 
     constructor(Arena arena_) {
         arena = arena_;
@@ -49,7 +51,8 @@ contract ArenaHandler is Test {
         return _actors[seed % (_actors.length - 1)];
     }
 
-    /// @dev Phase filter: 0 = submissions open, 1 = voting open, 2 = ended and not finalized.
+    /// @dev Phase filter: 0 = submissions open with room, 1 = voting open, 2 = ended and not finalized,
+    ///      3 = before votingEnd, 4 = before votingStart with a live entry.
     function _find(uint256 seed, uint8 phase, bool requireAnywhere, bool requireGated)
         internal
         view
@@ -62,10 +65,18 @@ contract ArenaHandler is Test {
             if (requireAnywhere && c.presence != Presence.Anywhere) continue;
             if (requireGated && c.presence != Presence.Gated) continue;
             bool ok;
-            if (phase == 0) ok = block.timestamp < c.submissionEnd && c.entryCount < 64;
-            else if (phase == 1) ok = block.timestamp >= c.votingStart && block.timestamp < c.votingEnd;
-            else if (phase == 2) ok = block.timestamp >= c.votingEnd && !c.finalized;
-            else ok = block.timestamp < c.votingEnd;
+            if (phase == 0) {
+                ok = block.timestamp < c.submissionEnd && c.liveEntryCount < arena.MAX_ENTRIES()
+                    && c.entryCount < arena.MAX_TOTAL_ENTRIES();
+            } else if (phase == 4) {
+                ok = block.timestamp < c.votingStart && c.liveEntryCount > 0;
+            } else if (phase == 1) {
+                ok = block.timestamp >= c.votingStart && block.timestamp < c.votingEnd;
+            } else if (phase == 2) {
+                ok = block.timestamp >= c.votingEnd && !c.finalized;
+            } else {
+                ok = block.timestamp < c.votingEnd;
+            }
             if (ok) return (cid, true);
         }
     }
@@ -105,8 +116,29 @@ contract ArenaHandler is Test {
         if (!found) return;
         ContestView memory c = arena.getContest(id);
         address who = c.openSubmissions ? _eoa(actorSeed) : c.organiser;
+        // a non-organiser at their quota hands over to the organiser (exempt)
+        if (who != c.organiser && arena.entriesSubmitted(id, who) >= arena.MAX_ENTRIES_PER_SUBMITTER()) {
+            who = c.organiser;
+        }
         vm.prank(who);
         arena.submitEntry(id, _actor(payeeSeed), "ipfs://e", new address[](0));
+        ghostSubmitCalls++;
+    }
+
+    function remove(uint256 contestSeed, uint256 entrySeed) external {
+        (uint256 id, bool found) = _find(contestSeed, 4, false, false);
+        if (!found) return;
+        ContestView memory c = arena.getContest(id);
+        EntryView[] memory es = arena.getEntries(id);
+        uint256 start = entrySeed % es.length;
+        for (uint256 k; k < es.length; ++k) {
+            uint256 i = (start + k) % es.length;
+            if (es[i].removed) continue;
+            vm.prank(c.organiser);
+            arena.removeEntry(id, uint32(i + 1));
+            ghostRemoveCalls++;
+            return;
+        }
     }
 
     function vote(uint256 contestSeed, uint256 actorSeed, uint256 entrySeed) external {
@@ -122,7 +154,7 @@ contract ArenaHandler is Test {
             entryId = entryId == 1 ? 2 : 1;
             e = arena.getEntries(id)[entryId - 1];
         }
-        if (e.payee == voter || (e.submitter == voter && voter != c.organiser)) return;
+        if (e.removed || e.payee == voter || (e.submitter == voter && voter != c.organiser)) return;
         vm.prank(voter);
         arena.vote(id, entryId, BeaconToken(0, bytes16(0)), new bytes32[](0));
         ghostVotes[id][voter] += 1;
@@ -158,6 +190,18 @@ contract ArenaHandler is Test {
         if (arena.claimable(who) == 0) return;
         vm.prank(who);
         arena.withdraw();
+        ghostWithdrawCalls++;
+    }
+
+    /// @dev Any actor, the ETH-rejecting contract included, routes its balance to an EOA actor.
+    function withdrawTo(uint256 actorSeed, uint256 toSeed) external {
+        address who = _actor(actorSeed);
+        for (uint256 k; k < _actors.length && arena.claimable(who) == 0; ++k) {
+            who = _actor(actorSeed % 64 + k);
+        }
+        if (arena.claimable(who) == 0) return;
+        vm.prank(who);
+        arena.withdrawTo(payable(_eoa(toSeed)));
         ghostWithdrawCalls++;
     }
 
