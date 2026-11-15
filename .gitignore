@@ -1,0 +1,27 @@
+# deps / builds
+node_modules/
+.next/
+out/
+web/dist/
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+coverage/
+playwright-report/
+test-results/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# local artefacts
+.shots/
+.DS_Store
+*.log
+.vercel/
+
+# local chain + e2e artefacts
+contracts/deployments/31337.json
+web/src/deployments/31337.json
+web/.e2e-ipfs/
