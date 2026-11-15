@@ -1,38 +1,23 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="Arena: the room decides." width="100%" />
+<a href="https://arena-voting.vercel.app"><img src="docs/assets/readme/hero.svg" alt="Arena. The room decides. Contests decided by the people physically in the room: the prize is locked in an Ethereum contract before the first vote and the contract pays the winner when voting closes. Sepolia testnet, verified contract, 227 contract, 646 web and 44 end-to-end tests." width="100%" /></a>
 
 <br />
 
-[![Live demo](https://img.shields.io/badge/live%20demo-arena--voting.vercel.app-f06a3b?style=flat-square)](https://arena-voting.vercel.app)
-[![Network](https://img.shields.io/badge/network-Sepolia%20testnet-52525b?style=flat-square&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code)
-[![Solidity](https://img.shields.io/badge/Solidity-0.8.38-363636?style=flat-square&logo=solidity&logoColor=white)](contracts/src/Arena.sol)
-[![Next.js](https://img.shields.io/badge/Next.js-16.4-000000?style=flat-square&logo=nextdotjs&logoColor=white)](web/package.json)
-[![Foundry](https://img.shields.io/badge/Foundry-1.9-52525b?style=flat-square)](contracts/foundry.toml)
-<br />
-[![Contract tests](https://img.shields.io/badge/contract%20tests-227%20passing-2ea44f?style=flat-square)](#testing)
-[![Coverage](https://img.shields.io/badge/contract%20coverage-100%25%20lines%20%2B%20branches-2ea44f?style=flat-square)](#testing)
-[![Web tests](https://img.shields.io/badge/web%20tests-646%20passing-2ea44f?style=flat-square)](#testing)
-[![E2E](https://img.shields.io/badge/e2e-44%20passing-2ea44f?style=flat-square)](#testing)
+<a href="https://arena-voting.vercel.app"><img src="https://img.shields.io/badge/live%20demo-arena--voting.vercel.app-FF7350?style=for-the-badge&labelColor=090A0D" alt="live demo: arena-voting.vercel.app" /></a>
+<a href="https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code"><img src="https://img.shields.io/badge/contract-verified%20on%20Etherscan-FF7350?style=for-the-badge&labelColor=090A0D&logo=ethereum&logoColor=white" alt="contract: verified on Etherscan" /></a>
+<a href="https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code"><img src="https://img.shields.io/badge/network-Sepolia%20testnet-FF7350?style=for-the-badge&labelColor=090A0D" alt="network: Sepolia testnet" /></a>
+<a href="#testing"><img src="https://img.shields.io/badge/tests-227%20contract%20%2F%20646%20web%20%2F%2044%20e2e-FF7350?style=for-the-badge&labelColor=090A0D" alt="tests: 227 contract / 646 web / 44 e2e" /></a>
 
-**Contests decided by the people actually in the room.**<br />
-Votes, prize money and payout are enforced by an Ethereum smart contract.
-
-[Live site](https://arena-voting.vercel.app) ·
-[Verified contract](https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code) ·
-[Rehearsal contest](https://arena-voting.vercel.app/c/1) ·
-[Docs](docs/README.md)
-
-<br />
-
-<img src="docs/assets/landing.webp" alt="Arena landing page in dark theme: hero, three steps, and why trust it" width="100%" />
+<sub><a href="https://arena-voting.vercel.app">Live site</a> &nbsp;·&nbsp; <a href="https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code">Verified contract</a> &nbsp;·&nbsp; <a href="https://arena-voting.vercel.app/c/1">Rehearsal contest</a> &nbsp;·&nbsp; <a href="docs/README.md">Docs</a></sub>
 
 </div>
 
 > [!NOTE]
 > Arena runs on the **Ethereum Sepolia testnet** only. Every prize, drip and fee is free test ETH with no real value, and the app says so.
 
-## What it is
+<a id="what-it-is"></a>
+<p align="center"><img src="docs/assets/readme/h-what.svg" alt="01 What it is" width="100%" /></p>
 
 Arena is a voting app for demo days, hackathon finals, college fests and design contests. An organiser creates a contest and locks an ETH prize in the contract, teams submit entries, and attendees vote from their phones. When voting closes, anyone can finalise the contest and the contract pays the winner. An optional feature called **Ground** proves a voter is physically at the venue, using an inaudible sound beacon and a door check-in, and the contract verifies both.
 
@@ -43,7 +28,18 @@ The four core features, and where they live:
 - [x] **Cast votes**: tap an entry on `/c/[id]` and confirm in your wallet; the contract's `vote()` checks every rule.
 - [x] **View results**: live hemicycle and ranked list on `/c/[id]` and the projector view `/c/[id]/stage`, then final results and payout.
 
-## Why it's different
+<p align="center">
+<a href="docs/contracts.md"><img src="docs/assets/readme/tile-prize.svg" alt="Prize locked in the contract: sent with createContest, it can't be taken back. The organiser can't change the timeline or remove entries once voting starts, and anyone can finalise at the end. No owner, no admin keys, no upgrades." width="65%" /></a>
+<a href="docs/ground-presence.md"><img src="docs/assets/readme/tile-room.svg" alt="The room signal (Ground): every 10 seconds the Stage plays a fresh token as inaudible sound, with a QR fallback, and the contract checks it." width="32%" /></a>
+</p>
+<p align="center">
+<a href="docs/ground-presence.md"><img src="docs/assets/readme/tile-pass.svg" alt="Door pass (Gated mode): one wallet signature, then a pass QR that changes every 2 seconds. The Gate checks you in on-chain and drips a little test ETH." width="32%" /></a>
+<a href="https://arena-voting.vercel.app/c/1"><img src="docs/assets/readme/tile-results.svg" alt="Live hemicycle results: one seat per vote, coloured by entry, updating every few seconds on phones and on the projector." width="65%" /></a>
+</p>
+<p align="center"><sub>Prize and payout rules live in the contract spec, the room signal and door pass in the Ground protocol, and the hemicycle on the rehearsal contest.</sub></p>
+
+<details>
+<summary><b>Why it's different, in words</b></summary>
 
 | | |
 |---|---|
@@ -52,52 +48,12 @@ The four core features, and where they live:
 | **Live hemicycle results** | One seat per vote, coloured by entry, updating every few seconds on phones and on the projector. |
 | **Winner paid by the contract** | After voting closes anyone can call `finalize`. Ties split equally, no votes refunds the organiser, and winners withdraw their share. No owner, no admin keys, no upgradeability. |
 
-## Screenshots
+</details>
 
-Captions marked (live, Sepolia) are the production site; the rest come from a local test chain (Anvil).
+<a id="how-it-works"></a>
+<p align="center"><img src="docs/assets/readme/h-how.svg" alt="02 How it works" width="100%" /></p>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/contest.webp" alt="Contest page for the rehearsal contest showing two entries, the winner badge and final results" />
-      <p align="center"><sub><b>Contest page</b>: entries, the winner and the final hemicycle (live, Sepolia).</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/stage-winner.webp" alt="Stage projector view announcing the winner and the prize" />
-      <p align="center"><sub><b>Stage, after voting</b>: the winner and the prize they take (live, Sepolia).</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/explore.webp" alt="Explore page with Live, Upcoming and Ended tabs" />
-      <p align="center"><sub><b>Explore</b>: live, upcoming and ended contests with search (live, Sepolia).</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/create-wizard.webp" alt="Create contest wizard on the Who can vote step" />
-      <p align="center"><sub><b>Create wizard</b>: choosing between Anywhere, In the room and At the door.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/reveal-tie.webp" alt="Stage winner reveal for a three-way tie with confetti" />
-      <p align="center"><sub><b>Winner reveal</b>: a three-way tie, so the prize is split equally.</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/gate-checked-in.webp" alt="Gate kiosk full-screen green confirmation reading Checked in" />
-      <p align="center"><sub><b>Gate</b>: a valid pass flashes green and the next person can step up.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" valign="top" align="center">
-      <img src="docs/assets/contest-phone.webp" alt="Rehearsal contest page on a phone showing final results" width="24%" />
-      <img src="docs/assets/pass-phone.webp" alt="Phone showing the animated door pass QR" width="24%" />
-      <img src="docs/assets/in-the-room-phone.webp" alt="Phone entry sheet showing In the room above the vote button" width="24%" />
-      <p align="center"><sub><b>Phone</b>: the rehearsal contest (live, Sepolia), the live door pass, and an entry sheet once the room signal is heard.</sub></p>
-    </td>
-  </tr>
-</table>
-
-## How it works
+<p align="center"><img src="docs/assets/readme/flow.svg" alt="How a contest runs. Before: lock the prize; the organiser creates the contest and sends the prize with createContest. During: fill the room; attendees vote from their phones and Room and Gated modes check presence on-chain. After: the contract pays; anyone calls finalize, ties split equally, no votes refunds the organiser and winners withdraw." width="100%" /></p>
 
 A contest has one of three presence modes: **Anywhere** (no presence check), **Room** (a fresh beacon token is required to vote) and **Gated** (door check-in plus the beacon). An optional ticket list (a Merkle allowlist of wallets) works with any mode.
 
@@ -162,7 +118,57 @@ What each mode stops, in short (full table in [ground-presence.md](docs/ground-p
 
 Ground does not make cheating impossible. It makes remote and mass cheating cost more than a contest is worth, and the contract publishes exactly what was verified.
 
-## Architecture
+<a id="screenshots"></a>
+<p align="center"><img src="docs/assets/readme/h-screens.svg" alt="03 Screenshots" width="100%" /></p>
+
+Captions marked (live, Sepolia) are the production site; the rest come from a local test chain (Anvil).
+
+<p align="center"><img src="docs/assets/landing.webp" alt="Arena landing page in dark theme: hero, three steps, and why trust it" width="100%" /></p>
+<p align="center"><sub><b>Landing page</b> (live, Sepolia).</sub></p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/contest.webp" alt="Contest page for the rehearsal contest showing two entries, the winner badge and final results" />
+      <p align="center"><sub><b>Contest page</b>: entries, the winner and the final hemicycle (live, Sepolia).</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/stage-winner.webp" alt="Stage projector view announcing the winner and the prize" />
+      <p align="center"><sub><b>Stage, after voting</b>: the winner and the prize they take (live, Sepolia).</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/explore.webp" alt="Explore page with Live, Upcoming and Ended tabs" />
+      <p align="center"><sub><b>Explore</b>: live, upcoming and ended contests with search (live, Sepolia).</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/create-wizard.webp" alt="Create contest wizard on the Who can vote step" />
+      <p align="center"><sub><b>Create wizard</b>: choosing between Anywhere, In the room and At the door.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/reveal-tie.webp" alt="Stage winner reveal for a three-way tie with confetti" />
+      <p align="center"><sub><b>Winner reveal</b>: a three-way tie, so the prize is split equally.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/gate-checked-in.webp" alt="Gate kiosk full-screen green confirmation reading Checked in" />
+      <p align="center"><sub><b>Gate</b>: a valid pass flashes green and the next person can step up.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top" align="center">
+      <img src="docs/assets/contest-phone.webp" alt="Rehearsal contest page on a phone showing final results" width="24%" />
+      <img src="docs/assets/pass-phone.webp" alt="Phone showing the animated door pass QR" width="24%" />
+      <img src="docs/assets/in-the-room-phone.webp" alt="Phone entry sheet showing In the room above the vote button" width="24%" />
+      <p align="center"><sub><b>Phone</b>: the rehearsal contest (live, Sepolia), the live door pass, and an entry sheet once the room signal is heard.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<a id="architecture"></a>
+<p align="center"><img src="docs/assets/readme/h-architecture.svg" alt="04 Architecture" width="100%" /></p>
 
 ```mermaid
 flowchart LR
@@ -221,9 +227,27 @@ There is no backend that holds state. The web app is server-rendered Next.js wit
 
 </details>
 
-## Tech stack
+<details>
+<summary><b>Design decisions</b></summary>
 
-All versions are pinned exactly (no `^`).
+From the [decision log](docs/decisions.md):
+
+- **Presence without a server (D-02).** All presence rules are verified by the contract. A backend presence oracle, GPS, NFC tags and a rotating QR alone were rejected.
+- **Hash chain, not signatures, for beacon tokens (D-03).** Data over sound carries tens of bytes per second; a 16-byte chain link is about 3x shorter than a signed token.
+- **wagmi 3 with our own Connect sheet (D-04).** RainbowKit and ConnectKit don't support wagmi 3, and Reown AppKit imposes its own look.
+- **Gas drip at check-in (D-07).** Attendees won't have Sepolia ETH, so the Gate forwards a small drip inside `checkIn` instead of sending people to a faucet.
+- **Live pass QR with a session key (D-08).** One wallet signature, then a pass that changes every 2 s, so screenshots expire.
+- **Pull payments for prizes (D-09).** `finalize` credits balances and winners withdraw, so one payee that can't receive ETH can't block everyone else.
+
+</details>
+
+<a id="stack"></a>
+<p align="center"><img src="docs/assets/readme/h-stack.svg" alt="05 Stack" width="100%" /></p>
+
+<p align="center"><img src="docs/assets/readme/stack.svg" alt="Stack, every version pinned. Contracts: Solidity 0.8.38, Foundry 1.9, OpenZeppelin 5.7. Web: Next.js 16.4, React 19.3, TypeScript 6.0, Tailwind CSS 4.3, Motion 14. Ethereum client: wagmi 3.7, viem 2.57. Testing: Vitest 5, Playwright 1.65. Ships on Vercel and Ethereum Sepolia." width="100%" /></p>
+
+<details>
+<summary><b>Every pinned version</b> (exact, no <code>^</code>)</summary>
 
 | Layer | What | Version |
 |---|---|---|
@@ -255,7 +279,10 @@ All versions are pinned exactly (no `^`).
 | | pnpm | 10.34.9 |
 | Services | Sepolia RPC (Alchemy or Infura), Etherscan, Reown (WalletConnect), Pinata, Vercel | |
 
-## Quick start (local)
+</details>
+
+<a id="run-it-locally"></a>
+<p align="center"><img src="docs/assets/readme/h-run.svg" alt="06 Run it locally" width="100%" /></p>
 
 **Prerequisites:** Node.js 24 to 26 (`.nvmrc` pins 26.7.0), pnpm 10.34.9, [Foundry](https://getfoundry.sh) v1.9.0 (`foundryup --install v1.9.0`) and `jq`.
 
@@ -308,7 +335,7 @@ Flags are `"1"` for on, anything else for off. For a local chain only `NEXT_PUBL
 
 </details>
 
-## Deploying to Sepolia
+### Deploying to Sepolia
 
 ```bash
 cd contracts
@@ -318,7 +345,8 @@ forge script script/Deploy.s.sol --rpc-url "$SEPOLIA_RPC_URL" --private-key "$DE
 
 `Deploy.s.sol` only accepts Sepolia (`11155111`) and Anvil (`31337`) and writes `contracts/deployments/<chainId>.json`; run `pnpm gen` afterwards. The web app deploys to Vercel with `web` as the root directory. The current deployment is [`0x2dC9d04Dd8f724C936aE7C200F73763e20662c34`](https://sepolia.etherscan.io/address/0x2dC9d04Dd8f724C936aE7C200F73763e20662c34#code) (source verified). Accounts, environment variables and the demo-day runbook are in [docs/deployment.md](docs/deployment.md).
 
-## Testing
+<a id="testing"></a>
+<p align="center"><img src="docs/assets/readme/h-testing.svg" alt="07 Testing" width="100%" /></p>
 
 | Suite | Command | Count |
 |---|---|---|
@@ -346,7 +374,34 @@ Sound transmission, cameras and wallet apps are checked on real devices with the
 
 </details>
 
-## Project structure
+<a id="honest-limits"></a>
+<p align="center"><img src="docs/assets/readme/h-limits.svg" alt="08 Honest limits" width="100%" /></p>
+
+- **One wallet is not one human.** Ticket lists and Gated mode limit abuse; proof of personhood is future work.
+- **The organiser is trusted for presence**, because they hold the beacon seed and the gatekeeper keys. They are not trusted for tallies or payouts, which the contract enforces.
+- **A decoded beacon token is data** and can be forwarded within its ~2-minute window. In Gated mode, only wallets that physically checked in can use it. See the [threat model](docs/ground-presence.md#threat-model).
+- **Votes are public on-chain**: anyone can see who voted for what.
+- **Testnet only for now.** Mainnet would need an independent audit and the rest of the readiness checklist in decision D-21.
+- **Room-mode voters need a little Sepolia ETH** of their own (the app links a faucet). Only Gated mode drips it at the door.
+
+<a id="docs"></a>
+<p align="center"><img src="docs/assets/readme/h-docs.svg" alt="09 Docs" width="100%" /></p>
+
+| Doc | What it covers |
+|---|---|
+| [docs/README.md](docs/README.md) | Index and glossary |
+| [docs/product.md](docs/product.md) | Users, flows, scope and limits |
+| [docs/architecture.md](docs/architecture.md) | Components, on-chain vs off-chain, trust model, pinned stack |
+| [docs/contracts.md](docs/contracts.md) | Contract spec: functions, rules, errors, invariants |
+| [docs/ground-presence.md](docs/ground-presence.md) | Beacon, door pass and threat model |
+| [docs/design-system.md](docs/design-system.md) | Tokens, type, colour, motion, components |
+| [docs/frontend.md](docs/frontend.md) | App structure, routes, data layer, wallet connection |
+| [docs/testing.md](docs/testing.md) | Contract, unit, E2E and real-device testing |
+| [docs/deployment.md](docs/deployment.md) | Environment, Sepolia deploy and verify, Vercel |
+| [docs/decisions.md](docs/decisions.md) | Decision log with rejected alternatives |
+
+<details>
+<summary><b>Project structure</b></summary>
 
 ```
 contracts/
@@ -365,43 +420,10 @@ docs/                        product, architecture, contract spec, presence prot
 spikes/sound/                device test page for the sound beacon
 ```
 
-## Honest limits
+</details>
 
-- **One wallet is not one human.** Ticket lists and Gated mode limit abuse; proof of personhood is future work.
-- **The organiser is trusted for presence**, because they hold the beacon seed and the gatekeeper keys. They are not trusted for tallies or payouts, which the contract enforces.
-- **A decoded beacon token is data** and can be forwarded within its ~2-minute window. In Gated mode, only wallets that physically checked in can use it. See the [threat model](docs/ground-presence.md#threat-model).
-- **Votes are public on-chain**: anyone can see who voted for what.
-- **Testnet only for now.** Mainnet would need an independent audit and the rest of the readiness checklist in decision D-21.
-- **Room-mode voters need a little Sepolia ETH** of their own (the app links a faucet). Only Gated mode drips it at the door.
+<br />
 
-## Design decisions
+<p align="center"><a href="https://arena-voting.vercel.app"><img src="docs/assets/readme/cta.svg" alt="Try it in the room: arena-voting.vercel.app. Contract verified on Etherscan. Sepolia testnet, free test ETH with no real value." width="100%" /></a></p>
 
-From the [decision log](docs/decisions.md):
-
-- **Presence without a server (D-02).** All presence rules are verified by the contract. A backend presence oracle, GPS, NFC tags and a rotating QR alone were rejected.
-- **Hash chain, not signatures, for beacon tokens (D-03).** Data over sound carries tens of bytes per second; a 16-byte chain link is about 3x shorter than a signed token.
-- **wagmi 3 with our own Connect sheet (D-04).** RainbowKit and ConnectKit don't support wagmi 3, and Reown AppKit imposes its own look.
-- **Gas drip at check-in (D-07).** Attendees won't have Sepolia ETH, so the Gate forwards a small drip inside `checkIn` instead of sending people to a faucet.
-- **Live pass QR with a session key (D-08).** One wallet signature, then a pass that changes every 2 s, so screenshots expire.
-- **Pull payments for prizes (D-09).** `finalize` credits balances and winners withdraw, so one payee that can't receive ETH can't block everyone else.
-
-## Documentation
-
-| Doc | What it covers |
-|---|---|
-| [docs/README.md](docs/README.md) | Index and glossary |
-| [docs/product.md](docs/product.md) | Users, flows, scope and limits |
-| [docs/architecture.md](docs/architecture.md) | Components, on-chain vs off-chain, trust model, pinned stack |
-| [docs/contracts.md](docs/contracts.md) | Contract spec: functions, rules, errors, invariants |
-| [docs/ground-presence.md](docs/ground-presence.md) | Beacon, door pass and threat model |
-| [docs/design-system.md](docs/design-system.md) | Tokens, type, colour, motion, components |
-| [docs/frontend.md](docs/frontend.md) | App structure, routes, data layer, wallet connection |
-| [docs/testing.md](docs/testing.md) | Contract, unit, E2E and real-device testing |
-| [docs/deployment.md](docs/deployment.md) | Environment, Sepolia deploy and verify, Vercel |
-| [docs/decisions.md](docs/decisions.md) | Decision log with rejected alternatives |
-
----
-
-<div align="center">
-<sub>Built by <a href="https://github.com/MaanavKrishna">Maanav Krishna</a></sub>
-</div>
+<p align="center"><sub>Built by <a href="https://github.com/MaanavKrishna">Maanav Krishna</a> &nbsp;·&nbsp; <a href="https://github.com/MaanavKrishna">github.com/MaanavKrishna</a></sub></p>
