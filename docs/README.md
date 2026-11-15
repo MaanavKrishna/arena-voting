@@ -16,7 +16,7 @@ Read in this order:
 | 8 | [deployment.md](deployment.md) | Environment variables, Sepolia deploy and verify, Vercel, IPFS |
 | 9 | [decisions.md](decisions.md) | Decision log with rejected alternatives and why |
 
-Agents and contributors: start with [`/AGENTS.md`](../AGENTS.md).
+Contributors: start with the repository README, then this index.
 
 Glossary:
 

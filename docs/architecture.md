@@ -166,7 +166,6 @@ Versions were checked against the npm registry and GitHub releases. **Use exact 
 ## Repository layout
 ```
 /
-  AGENTS.md            agent + contributor rules (read first)
   README.md            public project README (written last)
   .env.example         every env var with placeholder values
   .nvmrc  package.json (workspace root)  pnpm-workspace.yaml
