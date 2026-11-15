@@ -96,3 +96,15 @@ Format: context → decision → alternatives rejected → consequences. Add a n
 
 ## D-20 · Ticket list frozen at the first check-in
 - **Decision:** `setTicketList` reverts `CheckInsStarted` once anyone has checked in, so admitted wallets can't drift from the list.
+
+## D-21 · Sepolia testnet for now; mainnet is a later, owner-only phase
+- **Context:** The project runs on an Ethereum testnet for now. Mainnet may follow.
+- **Decision:** Ship on Sepolia. Keep the network config-driven (`web/src/config/network.ts`; `ALLOWED_CHAINS` in deploy scripts) so switching is a config change. Agents never enable mainnet on their own.
+- **Mainnet readiness checklist (all required before adding chain id 1):**
+  1. Owner's explicit go-ahead in writing.
+  2. Independent security review/audit of `Arena.sol` and `BeaconChain.sol` (real prize money will be escrowed).
+  3. Re-check gas costs at mainnet prices (beacon hash steps, check-in drips) and revisit `MAX_DRIP`, the drip default and `MAX_HASH_STEPS`.
+  4. Revisit the trust model with real money: organiser-held beacon seed and gatekeeper keys, burner wallets on kiosk devices.
+  5. Fresh deployer key held by the owner (hardware wallet), never in `.env` on a shared machine.
+  6. Mainnet RPC + Etherscan verification, separate Vercel environment, copy updated (no "Testnet" badge, real-value warnings on prize funding).
+  7. `Seed.s.sol` stays testnet-only.

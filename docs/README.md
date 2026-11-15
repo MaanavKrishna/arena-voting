@@ -1,6 +1,6 @@
 # Arena — documentation index
 
-Arena is an Ethereum voting DApp for **contests decided by the people in the room**. Organisers create a contest with an ETH prize, teams submit entries, attendees vote from their phones, and the smart contract pays the winner. The **Ground** feature proves a voter is physically at the venue using an inaudible sound beacon and a door check-in, verified on-chain.
+Arena is an Ethereum voting DApp for **contests decided by the people in the room**. **For now it runs only on the Ethereum Sepolia testnet** (free test ETH, no real money); mainnet may come later as a deliberate owner decision (see decisions D-21). Organisers create a contest with an ETH prize, teams submit entries, attendees vote from their phones, and the smart contract pays the winner. The **Ground** feature proves a voter is physically at the venue using an inaudible sound beacon and a door check-in, verified on-chain.
 
 Read in this order:
 

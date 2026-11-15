@@ -1,5 +1,7 @@
 # Deployment and environment
 
+> **Testnet for now.** This phase deploys only to the Ethereum **Sepolia testnet** and local Anvil. Every key involved holds only free test ETH. The deploy scripts refuse other chain ids; only the owner may change that list, following decisions D-21 (mainnet readiness checklist).
+
 ## Accounts the project owner must create (cannot be automated)
 | Service | What to get | Env var |
 |---|---|---|

@@ -1,6 +1,7 @@
 # Architecture
 
 ## Principles
+0. **Testnet for now, network-configurable.** This phase runs on the Ethereum **Sepolia testnet** (`11155111`) and local Anvil (`31337`). The target network is chosen in **one place** per side (`web/src/config/network.ts` and the deploy scripts' allowed-chain list) so a later mainnet phase is a config change plus the D-21 checklist — not a rewrite. Until the owner decides otherwise, mainnet is not configured, deployed to, or offered in the UI.
 1. **Ethereum is the source of truth.** Every rule that decides who can vote, what counts, and who gets paid lives in the `Arena` contract. The frontend never decides eligibility on its own.
 2. **No backend that holds state.** The website is server-rendered Next.js pages with client islands, plus one stateless route handler (`/api/upload`) that only exists to keep the IPFS secret off the client. Nothing the app needs is stored on a server.
 3. **Trust is visible.** Every contest shows a verification badge (Anywhere / Room-verified / Door + Room verified) and live counts of checked-in wallets and votes. All of it is readable on Etherscan.

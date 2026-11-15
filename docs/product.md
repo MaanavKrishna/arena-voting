@@ -109,7 +109,9 @@ Room mode needs **at least one beacon transport**: the QR beacon is core (it alw
 
 **Stretch:** `/me` page polish, judge-weighted votes, ENS names/avatars, winner reveal sequence with confetti, sponsored gas (ERC-4337 paymaster), Blind mode (hide live tallies in the UI).
 
-**Non-goals:** mainnet deployment, multiple-choice/ranked ballots, token prizes (ERC-20), private ballots, moderation tooling beyond pre-voting removal, mobile native apps.
+**Network (current phase):** Ethereum **Sepolia testnet** (chain id `11155111`); local development on Anvil (`31337`). All ETH in the app — prizes, drips, fees — is free test ETH with no real value, and the UI says so. Mainnet is a possible later phase, only by the owner's decision and after the checklist in decisions D-21.
+
+**Non-goals (this phase):** mainnet deployment, multiple-choice/ranked ballots, token prizes (ERC-20), private ballots, moderation tooling beyond pre-voting removal, mobile native apps.
 
 **Cut order if behind:** Stretch items → `/me` → sound beacon (keep QR beacon) → Gated mode (keep Room) → open submissions (keep curated). Never cut: the four brief requirements, prize payout, Room mode, design quality.
 

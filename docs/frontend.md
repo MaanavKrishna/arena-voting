@@ -42,6 +42,7 @@ web/
       wallet/                     ConnectSheet, AccountMenu, NetworkGuard
       providers.tsx               WagmiProvider + QueryClientProvider + MotionConfig + Toasts
     config/
+      network.ts                  targetChain, chains, currency label, isTestnet — the ONLY place a network is chosen
       wagmi.ts                    createConfig (chains, transports, connectors, ssr, storage)
       contracts.ts                arenaAddress(chainId), deployment block — reads src/deployments/<chainId>.json
     deployments/                  copied from contracts/deployments/ by `pnpm gen` (11155111.json committed)
@@ -100,6 +101,7 @@ createConfig({
 - Root layout passes `cookieToInitialState(config, (await headers()).get("cookie"))` to `<Providers>` so the connected state doesn't flash on load.
 - The RPC URL is public (`NEXT_PUBLIC_`). Restrict it to the production domain + localhost in the Alchemy/Infura dashboard.
 - **Verify in Task 2:** confirm exact wagmi 3 connector names/options (`injected`, `walletConnect`, `baseAccount`, `mock`) against `node_modules/@wagmi/connectors` types, and confirm Base Account supports Ethereum Sepolia. If not, hide the Face ID option on Sepolia and note it.
+- **Network config in one file:** `web/src/config/network.ts` exports `targetChain`, the `chains` list, the currency label and `isTestnet`. Current phase: `sepolia` (+ `foundry` in dev). Nothing else in the app hard-codes a chain id or "Sepolia" — components read from this file, so a later mainnet phase only changes config. Don't add `mainnet` in this phase (the only exception is the E2E-only wrong-network test). While `isTestnet`, a small persistent **"Testnet"** badge sits in the nav and amounts read "Sepolia ETH".
 - `targetChain = env.NEXT_PUBLIC_ENABLE_ANVIL ? foundry : sepolia`. `NetworkGuard`: if connected to any other chain, every `TxButton` becomes "Switch to {targetChain.name}" (`useSwitchChain`). Reads still work without a wallet (public client on `targetChain`).
 - In **Gated** contests the Connect sheet hides the Base Account (Face ID) option — passkey signatures don't fit the Pass QR (decision D-13).
 - **Env parsing:** Next only inlines `process.env.NEXT_PUBLIC_X` when written literally, so `env.ts` reads each variable by name (`NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E`) and parses flags as `v === "1"` (never `z.coerce.boolean`, which makes "0" true).

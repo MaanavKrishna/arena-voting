@@ -4,6 +4,9 @@ One contract, `contracts/src/Arena.sol`, plus a library `contracts/src/lib/Beaco
 
 > This document is normative: names, types, limits, check order and error names here are the interface the frontend and tests are written against. If implementation forces a change, update this file in the same commit and add a `decisions.md` entry.
 
+## Network
+Current phase: deployed **only** to Ethereum Sepolia testnet (`11155111`) and local Anvil (`31337`). The contract itself is network-agnostic. `Deploy.s.sol` and `Seed.s.sol` check `block.chainid` against an allow-list constant `ALLOWED_CHAINS = [11155111, 31337]` and revert otherwise; `test/Deploy.t.sol` asserts it reverts on chain id 1. Adding mainnet later = owner decision + D-21 checklist + adding `1` to that list (never `Seed.s.sol` — demo data stays testnet-only).
+
 ## Constants
 ```solidity
 uint256 constant MAX_TITLE_BYTES        = 80;
