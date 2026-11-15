@@ -121,6 +121,7 @@ Emits `BeaconSet(contestId, anchor, start, length, rotation)`.
 
 ### `advanceBeacon(uint256 contestId, BeaconToken calldata t) external`
 Anyone (the Stage calls it from its own burner wallet). Moves the cache forward **without the token-age window**, so the chain can be bridged after a long quiet period (e.g. overnight in a multi-day contest).
+Implemented check order: `ContestNotFound` · `VotingEnded` · `BeaconNotSet` · `BeaconSlotOutOfRange` · future slot → `BeaconExpired` · not newer than cache → `InvalidBeaconToken` · `BeaconGapTooLarge` · hash mismatch → `InvalidBeaconToken`.
 Checks: 1 `ContestNotFound` · 2 `VotingEnded` · 3 beacon status from `BeaconChain.check(..., requireFresh = false)`; additionally the slot must not be in the future: `start + slot*SLOT_SECONDS > now + MAX_FUTURE_SKEW` → `BeaconExpired`. Token must be **newer** than the cache (`idx < cachedIndex`), else `InvalidBeaconToken`. Gap > `MAX_HASH_STEPS` → `BeaconGapTooLarge` (the Stage holds the whole chain, so it submits links in hops of ≤ 4096).
 Effects: cache update. Emits `BeaconAdvanced(contestId, slot)`.
 Revealing an old link is harmless: anyone who heard a newer token can already compute it.
@@ -170,6 +171,7 @@ function beaconStatus(uint256 contestId, BeaconToken calldata t) external view r
 function isBeaconTokenValid(uint256 contestId, BeaconToken calldata t) external view returns (bool);   // beaconStatus == Ok
 function computeNextLink(bytes16 link) external pure returns (bytes16);                       // parity helper
 ```
+`getEntries`, `voterState`, `beaconStatus` and `isBeaconTokenValid` revert `ContestNotFound` for unknown ids; the auto-generated getters (`votedEntry`, `checkedIn`, `isGatekeeper`, `claimable`) don't. Limits are `public constant` (ABI getters). `Deploy.s.sol` exposes `ALLOWED_CHAINS()` as a pure function and honours an optional `ARENA_DEPLOYMENT_FILE` env var (tests use it so they never touch real deployment files).
 
 ## Events (indexed fields marked)
 ```solidity
@@ -221,7 +223,7 @@ library BeaconChain {
 
 Direction: `next` maps `c[k] → c[k+1]`, and newer slots have **lower** indices. From a newer token you can derive every older one, never the reverse — hearing the current token never reveals a future one. The time window (step 2) is what makes old tokens useless for voting.
 
-Gas: worst case 4096 keccaks ≈ 250k gas; a warm cache (the Stage advances it every minute) means 1–10 steps per vote.
+Gas (measured, excl. 21k base): ~109 gas per hash step; worst-case vote (4096 steps) ≈ 543k; cold first vote at slot 1000 ≈ 210k; warm vote (6 steps) ≈ 102k; Anywhere vote ≈ 96k. The Stage advances the cache every minute so voters stay warm.
 
 ## Off-chain signed data (verified by the Gate, not the contract)
 EIP-712 domain: `{ name: "Arena", version: "1", chainId, verifyingContract: <Arena address> }`.
