@@ -85,6 +85,10 @@ const ARENA_ERRORS: Record<ArenaErrorName, ExplainedError> = {
   TooManyEntries: {
     title: "This contest already has the maximum number of entries.",
   },
+  TooManyEntriesFromSubmitter: {
+    title: "You've already submitted the most entries allowed from one wallet.",
+    detail: "Ask the organiser to add more entries for your team.",
+  },
 
   // presence and check-in
   PresenceNotRequired: { title: "This contest doesn't use a room signal." },
