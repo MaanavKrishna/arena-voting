@@ -1,5 +1,6 @@
 import { BaseError, ContractFunctionRevertedError } from "viem";
 import { arenaAbi } from "@/generated";
+import { currencyLabel } from "@/config/network";
 
 export type ErrorAction = "retry" | "switch-network" | "connect";
 export type ExplainedError = {
@@ -214,7 +215,7 @@ export function explainError(err: unknown): ExplainedError {
     )
   ) {
     return {
-      title: "Your wallet needs a little Sepolia ETH for the network fee.",
+      title: `Your wallet needs a little ${currencyLabel} for the network fee.`,
       detail: "Top up from a faucet, then try again.",
     };
   }
