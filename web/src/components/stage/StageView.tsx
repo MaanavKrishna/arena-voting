@@ -27,12 +27,15 @@ import { StartBeacon } from "./StartBeacon";
 import { useBeaconController } from "./useBeaconController";
 import { useStageBurner } from "./useStageBurner";
 import { useTransmitter } from "./useTransmitter";
+import { WinnerReveal, useRevealPreview } from "./WinnerReveal";
+
+const defaultReveal = (contestId: string) => <WinnerReveal contestId={contestId} />;
 
 export type StageViewProps = {
   contestId: string;
   /**
-   * Winner reveal hook (later task). When given, it replaces the live results once voting has
-   * ended; until then the results panel shows the final standings with a "Voting closed" label.
+   * Replaces the live results once voting has ended (default: the winner reveal). With the E2E flag
+   * on, `?preview=reveal|closed` shows it early with the live tallies, without touching the chain.
    */
   renderReveal?: (contestId: string) => ReactNode;
 };
@@ -42,7 +45,7 @@ export type StageViewProps = {
  * 1440+ wide screens: live hemicycle + top 5 on the left, join QR + counters on the right, beacon
  * status along the bottom. Organiser controls live in a drawer so the projected view stays clean.
  */
-export function StageView({ contestId, renderReveal }: StageViewProps) {
+export function StageView({ contestId, renderReveal = defaultReveal }: StageViewProps) {
   const id = parseContestId(contestId);
   const { chainId, address: arena } = useArena();
   const contest = useContest(contestId);
@@ -50,6 +53,7 @@ export function StageView({ contestId, renderReveal }: StageViewProps) {
   useLiveContest(contestId);
   const time = useChainTime();
   const view = contest.data;
+  const preview = useRevealPreview();
 
   const controller = useBeaconController({ contest: view, chainNow: time.now, ids: { chainId, arena, contestId: id } });
   const active = controller.active;
@@ -85,7 +89,8 @@ export function StageView({ contestId, renderReveal }: StageViewProps) {
   if (!view) return <StageSkeleton />;
 
   const needsBeacon = view.presence !== PRESENCE_ANYWHERE;
-  const ended = phase === "ended" || phase === "finalized";
+  // A reveal preview (E2E only) behaves like the real ended state: no beacon setup, closed pill.
+  const ended = phase === "ended" || phase === "finalized" || preview !== null;
   const flow = controller.flow;
   const setupOpen =
     needsBeacon &&
@@ -100,7 +105,7 @@ export function StageView({ contestId, renderReveal }: StageViewProps) {
   const canStart = needsBeacon && active !== null && !ended && transmitter.status !== "on" && !setupOpen;
 
   const statusPill = ended ? (
-    <StatusPill status="ended" label={phase === "finalized" ? "Final results" : "Voting closed"} />
+    <StatusPill status="ended" label={phase === "finalized" || preview === "reveal" ? "Final results" : "Voting closed"} />
   ) : voting ? (
     <StatusPill status="live" label="Voting live" />
   ) : (
@@ -141,7 +146,7 @@ export function StageView({ contestId, renderReveal }: StageViewProps) {
           aria-label="Live results"
           className="solid squircle relative flex min-h-0 flex-col overflow-hidden rounded-xl lg:col-span-7"
         >
-          {voting ? <BorderBeam /> : null}
+          {voting && !ended ? <BorderBeam /> : null}
           {ended && renderReveal ? (
             renderReveal(contestId)
           ) : (
