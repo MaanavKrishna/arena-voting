@@ -10,7 +10,7 @@ import { Countdown } from "@/components/ui/Countdown";
 import { StatusPill, type Status } from "@/components/ui/StatusPill";
 import { currencyLabel } from "@/config/network";
 import { useMetadata } from "@/hooks/useMetadata";
-import { useNow } from "@/hooks/useNow";
+import { useChainTime } from "@/hooks/useChainTime";
 import type { ContestView } from "@/hooks/types";
 import { formatEth } from "@/lib/format";
 import { ipfsDisplayUrl } from "@/lib/ipfs";
@@ -115,7 +115,9 @@ function Cover({ contest }: { contest: ContestView }) {
 
 /** One contest as a single link: cover, status, title, prize, presence, votes and the next countdown. */
 export function ContestCard({ contest, beam, className }: { contest: ContestView; beam?: boolean; className?: string }) {
-  const now = useNow();
+  // Chain time, like the explore tabs that list this card: a device clock that is off would
+  // otherwise label a live contest "Taking entries" (or the reverse).
+  const { now } = useChainTime();
   const phase = now === 0n ? null : phaseOf(contest, now);
   const { status, label } = statusOf(phase ?? "voting");
   const boundary = now === 0n ? null : nextBoundary(contest, now);

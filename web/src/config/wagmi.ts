@@ -8,6 +8,7 @@ import {
   mock,
   type CreateConnectorFn,
 } from "wagmi";
+import { switchChain } from "wagmi/actions";
 import type { Address } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import { ANVIL_KEYS, e2eIndex } from "@/lib/burner";
@@ -104,7 +105,29 @@ let browserConfig: ArenaConfig | undefined;
  */
 export function getConfig(): ArenaConfig {
   if (typeof window === "undefined") return makeConfig();
-  return (browserConfig ??= makeConfig());
+  if (!browserConfig) {
+    browserConfig = makeConfig();
+    if (env.NEXT_PUBLIC_E2E) exposeE2EHooks(browserConfig);
+  }
+  return browserConfig;
+}
+
+/**
+ * E2E only (NEXT_PUBLIC_E2E): lets a test move the mock wallet to another configured chain, the
+ * way a user switches networks in their wallet, to exercise the wrong-network prompt
+ * (docs/testing.md, errors.spec.ts).
+ */
+function exposeE2EHooks(config: ArenaConfig) {
+  window.__arenaSwitchChain = async (chainId: number) => {
+    await switchChain(config, { chainId: chainId as ArenaConfig["chains"][number]["id"] });
+    return true;
+  };
+}
+
+declare global {
+  interface Window {
+    __arenaSwitchChain?: (chainId: number) => Promise<boolean>;
+  }
 }
 
 declare module "wagmi" {
